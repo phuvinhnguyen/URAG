@@ -5,7 +5,6 @@ system:
   name: simplerag
   args:
     model_name: Qwen/Qwen3-0.6B  # Larger model for better performance
-    alpha: 0.05  # 95% coverage (more conservative)
     # device is auto-detected (CUDA if available, otherwise CPU)
 
 dataset: datasets/comprehensive.json

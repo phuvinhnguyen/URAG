@@ -5,7 +5,6 @@ system:
   name: simplellm
   args:
     model_name: Qwen/Qwen3-0.6B
-    alpha: 0.1
     # device is auto-detected if not specified
 
 dataset: datasets/example.json

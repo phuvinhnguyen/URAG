@@ -6,7 +6,6 @@ system:
   name: simplellm  # Change this to 'simplerag' for RAG system
   args:
     model_name: Qwen/Qwen3-0.6B  # Fast model for quick comparison
-    alpha: 0.1  # 90% coverage
     # You can override device here if needed (e.g., device: cpu)
 
 dataset: datasets/comprehensive.json  # Use comprehensive dataset for better comparison
