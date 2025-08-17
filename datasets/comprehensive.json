@@ -1,0 +1,249 @@
+{
+  "name": "Comprehensive Multiple Choice Dataset",
+  "description": "A diverse dataset covering multiple domains for thorough RAG system evaluation",
+  "version": "1.0",
+  "calibration": [
+    {
+      "id": "cal_001",
+      "question": "What is the capital of France?\nA. London\nB. Berlin\nC. Paris\nD. Madrid",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "geography"
+    },
+    {
+      "id": "cal_002", 
+      "question": "Which programming language is widely used for data science?\nA. COBOL\nB. Python\nC. Assembly\nD. FORTRAN",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "technology"
+    },
+    {
+      "id": "cal_003",
+      "question": "What is the largest planet in our solar system?\nA. Earth\nB. Mars\nC. Jupiter\nD. Saturn",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "science"
+    },
+    {
+      "id": "cal_004",
+      "question": "Who wrote the novel 'Pride and Prejudice'?\nA. Charlotte Brontë\nB. Jane Austen\nC. Emily Dickinson\nD. Virginia Woolf",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "literature"
+    },
+    {
+      "id": "cal_005",
+      "question": "What is the chemical symbol for gold?\nA. Go\nB. Au\nC. Ag\nD. Gd",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "science"
+    },
+    {
+      "id": "cal_006",
+      "question": "In which year did World War II end?\nA. 1944\nB. 1945\nC. 1946\nD. 1947",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "history"
+    },
+    {
+      "id": "cal_007",
+      "question": "What is 15 + 27?\nA. 41\nB. 42\nC. 43\nD. 44",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "mathematics"
+    },
+    {
+      "id": "cal_008",
+      "question": "Which continent is Brazil located in?\nA. Asia\nB. Africa\nC. South America\nD. North America",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "geography"
+    },
+    {
+      "id": "cal_009",
+      "question": "What does HTML stand for?\nA. Hypertext Markup Language\nB. High-Tech Modern Language\nC. Home Tool Markup Language\nD. Hyperlink and Text Markup Language",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "A",
+      "technique": "direct",
+      "domain": "technology"
+    },
+    {
+      "id": "cal_010",
+      "question": "Which gas makes up approximately 78% of Earth's atmosphere?\nA. Oxygen\nB. Carbon dioxide\nC. Nitrogen\nD. Argon",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "science"
+    },
+    {
+      "id": "cal_011",
+      "question": "Who painted 'The Starry Night'?\nA. Pablo Picasso\nB. Vincent van Gogh\nC. Claude Monet\nD. Salvador Dalí",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "art"
+    },
+    {
+      "id": "cal_012",
+      "question": "What is the square root of 144?\nA. 11\nB. 12\nC. 13\nD. 14",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "mathematics"
+    },
+    {
+      "id": "cal_013",
+      "question": "Which ocean is the largest?\nA. Atlantic\nB. Indian\nC. Arctic\nD. Pacific",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "D",
+      "technique": "direct",
+      "domain": "geography"
+    },
+    {
+      "id": "cal_014",
+      "question": "What is the primary function of mitochondria in cells?\nA. Protein synthesis\nB. Energy production\nC. DNA storage\nD. Cell division",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "biology"
+    },
+    {
+      "id": "cal_015",
+      "question": "Which philosopher wrote 'The Republic'?\nA. Aristotle\nB. Socrates\nC. Plato\nD. Epicurus",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "philosophy"
+    },
+    {
+      "id": "cal_016",
+      "question": "What is the fastest land animal?\nA. Lion\nB. Cheetah\nC. Leopard\nD. Gazelle",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "biology"
+    },
+    {
+      "id": "cal_017",
+      "question": "In which city is the headquarters of the United Nations located?\nA. Geneva\nB. Paris\nC. New York\nD. London",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "politics"
+    },
+    {
+      "id": "cal_018",
+      "question": "What is the result of 7 × 8?\nA. 54\nB. 56\nC. 58\nD. 64",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "mathematics"
+    },
+    {
+      "id": "cal_019",
+      "question": "Which element has the atomic number 1?\nA. Helium\nB. Hydrogen\nC. Lithium\nD. Carbon",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "chemistry"
+    },
+    {
+      "id": "cal_020",
+      "question": "Who composed 'The Four Seasons'?\nA. Bach\nB. Mozart\nC. Vivaldi\nD. Beethoven",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "music"
+    }
+  ],
+  "test": [
+    {
+      "id": "test_001",
+      "question": "What is the smallest unit of matter?\nA. Molecule\nB. Atom\nC. Electron\nD. Proton",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "science"
+    },
+    {
+      "id": "test_002",
+      "question": "Which language is primarily spoken in Brazil?\nA. Spanish\nB. English\nC. Portuguese\nD. French",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "geography"
+    },
+    {
+      "id": "test_003",
+      "question": "What is 8 × 7?\nA. 54\nB. 56\nC. 58\nD. 64",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "mathematics"
+    },
+    {
+      "id": "test_004",
+      "question": "Who painted the Mona Lisa?\nA. Vincent van Gogh\nB. Pablo Picasso\nC. Leonardo da Vinci\nD. Claude Monet",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "art"
+    },
+    {
+      "id": "test_005",
+      "question": "What is the primary function of the CPU in a computer?\nA. Store data permanently\nB. Display graphics\nC. Process instructions\nD. Connect to the internet",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "C",
+      "technique": "direct",
+      "domain": "technology"
+    },
+    {
+      "id": "test_006",
+      "question": "Which planet is known as the 'Red Planet'?\nA. Venus\nB. Mars\nC. Jupiter\nD. Saturn",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "science"
+    },
+    {
+      "id": "test_007",
+      "question": "What is the capital of Japan?\nA. Tokyo\nB. Osaka\nC. Kyoto\nD. Nagoya",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "A",
+      "technique": "direct",
+      "domain": "geography"
+    },
+    {
+      "id": "test_008",
+      "question": "Who wrote '1984'?\nA. Aldous Huxley\nB. George Orwell\nC. Ray Bradbury\nD. Kurt Vonnegut",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "literature"
+    },
+    {
+      "id": "test_009",
+      "question": "What is the result of 144 ÷ 12?\nA. 11\nB. 12\nC. 13\nD. 14",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "B",
+      "technique": "direct",
+      "domain": "mathematics"
+    },
+    {
+      "id": "test_010",
+      "question": "Which programming paradigm does Python primarily support?\nA. Functional only\nB. Object-oriented only\nC. Procedural only\nD. Multi-paradigm",
+      "options": ["A", "B", "C", "D"],
+      "correct_answer": "D",
+      "technique": "direct",
+      "domain": "technology"
+    }
+  ]
+}

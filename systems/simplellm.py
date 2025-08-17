@@ -1,0 +1,165 @@
+from systems.abstract import AbstractRAGSystem
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from loguru import logger
+import re
+import numpy as np
+import torch.nn.functional as F
+from typing import Dict, Any, List, Tuple
+
+class SimpleLLMSystem(AbstractRAGSystem):
+    """
+    Simple LLM system without RAG - just direct prompting.
+    
+    This serves as a baseline and example implementation.
+    """
+    
+    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto"):
+        """Initialize the LLM system."""
+        if device == "auto":
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        else:
+            self.device = torch.device(device)
+            
+        logger.info(f"Loading model {model_name} on {self.device}")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.model.to(self.device)
+        self.model.eval()
+        
+        # Add pad token if not present
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+    
+    def get_batch_size(self) -> int:
+        """Return batch size of 1 for this simple implementation."""
+        return 1
+    
+    def _generate_prompt(self, sample: Dict[str, Any]) -> str:
+        """Generate prompt based on sample technique."""
+        question = sample.get('question', '')
+        technique = sample.get('technique', 'direct')
+        
+        if technique == 'cot':
+            return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your choice."
+        elif technique == 'rag':
+            # For simple LLM, just mention if context exists but don't use it effectively
+            context = sample.get('search_results', sample.get('context', ''))
+            if context:
+                return f"Context information: {context}\n\nQuestion: {question}\n\nPlease provide your final answer in the format <answer>X</answer>."
+            else:
+                return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your choice."
+        else:
+            # Direct prompting
+            return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your choice."
+    
+    def _generate_response(self, prompt: str, max_length: int = 200) -> str:
+        """Generate response from the LLM."""
+        inputs = self.tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=512)
+        inputs = inputs.to(self.device)
+        
+        with torch.no_grad():
+            outputs = self.model.generate(
+                inputs,
+                max_length=inputs.shape[1] + max_length,
+                num_return_sequences=1,
+                temperature=0.01,
+                do_sample=True,
+                pad_token_id=self.tokenizer.eos_token_id
+            )
+        
+        response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
+        return response.strip()
+    
+    def _find_answer_positions(self, text: str) -> Tuple[int, int]:
+        """Find the start and end positions of <answer>...</answer> tags."""
+        pattern = r'<answer>(.*?)</answer>'
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return match.start(1), match.end(1)
+        return -1, -1
+    
+    def _compute_option_probabilities(self, response: str, options: List[str]) -> Dict[str, float]:
+        """Compute softmax probabilities for each option."""
+        start_pos, end_pos = self._find_answer_positions(response)
+        
+        if start_pos == -1:
+            # If no answer format found, return uniform distribution
+            uniform_prob = 1.0 / len(options)
+            return {option: uniform_prob for option in options}
+        
+        probabilities = {}
+        logits = []
+        
+        for option in options:
+            # Replace the answer with current option
+            modified_response = response[:start_pos] + option + response[end_pos:]
+            
+            # Tokenize and get logits for this modified response
+            inputs = self.tokenizer.encode(modified_response, return_tensors="pt", truncation=True, max_length=512)
+            inputs = inputs.to(self.device)
+            
+            with torch.no_grad():
+                outputs = self.model(inputs)
+                # Get the logit for the option token
+                option_tokens = self.tokenizer.encode(option, add_special_tokens=False)
+                if not option_tokens:
+                    logits.append(-float('inf'))
+                    continue
+                    
+                option_token_id = option_tokens[0]
+                
+                # Find position of the option in the sequence
+                option_pos = -1
+                input_ids = inputs[0].cpu().numpy()
+                
+                for i in range(len(input_ids) - len(option_tokens) + 1):
+                    if np.array_equal(input_ids[i:i+len(option_tokens)], option_tokens):
+                        option_pos = i
+                        break
+                
+                if option_pos > 0:
+                    # Get logit at the position before the option token
+                    logit = outputs.logits[0, option_pos-1, option_token_id].item()
+                else:
+                    # Fallback: use average logit
+                    logit = outputs.logits[0, -1, option_token_id].item()
+                
+                logits.append(logit)
+        
+        # Apply softmax to convert logits to probabilities
+        logits_tensor = torch.tensor(logits)
+        probs_tensor = F.softmax(logits_tensor, dim=0)
+        
+        for i, option in enumerate(options):
+            probabilities[option] = probs_tensor[i].item()
+        
+        return probabilities
+    
+    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a single sample through the LLM system."""
+        # Generate prompt
+        prompt = self._generate_prompt(sample)
+        
+        # Generate response
+        response = self._generate_response(prompt)
+        
+        # Extract options from the sample
+        options = sample.get('options', [])
+        
+        # Compute option probabilities
+        option_probabilities = self._compute_option_probabilities(response, options)
+        
+        # Extract the predicted answer
+        start_pos, end_pos = self._find_answer_positions(response)
+        predicted_answer = response[start_pos:end_pos] if start_pos != -1 else "Unknown"
+        
+        # Return result
+        return {
+            'id': sample.get('id', 'unknown'),
+            'generated_response': response,
+            'predicted_answer': predicted_answer,
+            'option_probabilities': option_probabilities,
+            'prompt_used': prompt,
+            'technique': sample.get('technique', 'direct')
+        }
