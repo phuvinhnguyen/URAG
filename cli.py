@@ -11,8 +11,10 @@ import argparse
 import json
 import os
 import sys
+import yaml
+import torch
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from loguru import logger
 from mc_evaluation import ConformalEvaluationPipeline
@@ -79,6 +81,113 @@ def cleanup_temp_files(cal_path: str, test_path: str):
         logger.warning(f"Failed to cleanup temp files: {e}")
 
 
+def auto_detect_device() -> str:
+    """Automatically detect the best available device."""
+    if torch.cuda.is_available():
+        device = "cuda"
+        logger.info(f"Auto-detected device: {device} (GPU: {torch.cuda.get_device_name()})")
+    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        device = "mps"
+        logger.info(f"Auto-detected device: {device} (Apple Silicon)")
+    else:
+        device = "cpu"
+        logger.info(f"Auto-detected device: {device}")
+    
+    return device
+
+
+def load_config(config_path: str) -> Dict[str, Any]:
+    """Load configuration from YAML file."""
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+    
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
+    
+    # Validate required fields
+    required_fields = ['system', 'dataset']
+    for field in required_fields:
+        if field not in config:
+            raise ValueError(f"Missing required field '{field}' in config file")
+    
+    # Validate system config
+    if 'name' not in config['system']:
+        raise ValueError("Missing 'name' field in system configuration")
+    
+    logger.info(f"Loaded configuration for system: {config['system']['name']}")
+    return config
+
+
+def run_from_config(config_path: str, verbose: bool = False) -> Dict[str, Any]:
+    """Run evaluation from YAML configuration file."""
+    # Configure logging
+    if verbose:
+        logger.remove()
+        logger.add(sys.stderr, level="DEBUG")
+    else:
+        logger.remove()
+        logger.add(sys.stderr, level="INFO")
+    
+    try:
+        # Load configuration
+        config = load_config(config_path)
+        
+        # Extract system configuration
+        system_config = config['system']
+        system_name = system_config['name']
+        system_args = system_config.get('args', {})
+        
+        # Auto-detect device if not specified
+        if 'device' not in system_args:
+            system_args['device'] = auto_detect_device()
+        
+        # Load dataset
+        dataset_path = config['dataset']
+        logger.info(f"Loading dataset from {dataset_path}")
+        data = load_dataset(dataset_path)
+        
+        # Initialize system
+        logger.info(f"Initializing system: {system_name}")
+        system = get_system(system_name, **system_args)
+        
+        # Create pipeline
+        pipeline = ConformalEvaluationPipeline(system)
+        
+        # Get output directory
+        output_dir = config.get('output', 'results')
+        
+        # Save temporary files
+        cal_path, test_path = save_temp_files(data, output_dir)
+        
+        try:
+            # Run evaluation
+            logger.info("Starting evaluation...")
+            
+            # Extract alpha from system args or use default
+            alpha = system_args.get('alpha', 0.1)
+            
+            results = pipeline.run_evaluation(
+                calibration_data_path=cal_path,
+                test_data_path=test_path,
+                alpha=alpha,
+                output_dir=output_dir
+            )
+            
+            # Print results
+            print_results(results)
+            
+            logger.info("Evaluation completed successfully!")
+            return results
+            
+        finally:
+            # Cleanup temporary files
+            cleanup_temp_files(cal_path, test_path)
+    
+    except Exception as e:
+        logger.error(f"Evaluation failed: {e}")
+        sys.exit(1)
+
+
 def print_results(results: Dict[str, Any]):
     """Print evaluation results in a formatted way."""
     metrics = results['metrics']
@@ -111,23 +220,32 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # Direct command line usage
   python cli.py --system simplellm --dataset datasets/example.json
   python cli.py --system simplellm --dataset datasets/example.json --output results/ --alpha 0.05
   python cli.py --system simplellm --dataset datasets/example.json --model microsoft/DialoGPT-small
+  
+  # Config file usage
+  python cli.py --config config.yaml
+  python cli.py --config config.yaml --verbose
         """
     )
     
     parser.add_argument(
+        '--config',
+        type=str,
+        help='Path to YAML configuration file'
+    )
+    
+    parser.add_argument(
         '--system', 
-        type=str, 
-        required=True,
+        type=str,
         help='System name to evaluate (e.g., simplellm, simplerag)'
     )
     
     parser.add_argument(
         '--dataset', 
-        type=str, 
-        required=True,
+        type=str,
         help='Path to dataset JSON file'
     )
     
@@ -167,51 +285,63 @@ Examples:
     
     args = parser.parse_args()
     
-    # Configure logging
-    if args.verbose:
-        logger.remove()
-        logger.add(sys.stderr, level="DEBUG")
+    # Check if using config file or direct CLI
+    if args.config:
+        # Use config file mode
+        run_from_config(args.config, args.verbose)
     else:
-        logger.remove()
-        logger.add(sys.stderr, level="INFO")
-    
-    try:
-        # Load dataset
-        logger.info(f"Loading dataset from {args.dataset}")
-        data = load_dataset(args.dataset)
+        # Use direct CLI mode
+        if not args.system or not args.dataset:
+            parser.error("--system and --dataset are required when not using --config")
         
-        # Initialize system
-        logger.info(f"Initializing system: {args.system}")
-        system = get_system(args.system, model_name=args.model, device=args.device)
+        # Configure logging
+        if args.verbose:
+            logger.remove()
+            logger.add(sys.stderr, level="DEBUG")
+        else:
+            logger.remove()
+            logger.add(sys.stderr, level="INFO")
         
-        # Create pipeline
-        pipeline = ConformalEvaluationPipeline(system)
-        
-        # Save temporary files
-        cal_path, test_path = save_temp_files(data, args.output)
+        # Auto-detect device if set to auto
+        device = auto_detect_device() if args.device == 'auto' else args.device
         
         try:
-            # Run evaluation
-            logger.info("Starting evaluation...")
-            results = pipeline.run_evaluation(
-                calibration_data_path=cal_path,
-                test_data_path=test_path,
-                alpha=args.alpha,
-                output_dir=args.output
-            )
+            # Load dataset
+            logger.info(f"Loading dataset from {args.dataset}")
+            data = load_dataset(args.dataset)
             
-            # Print results
-            print_results(results)
+            # Initialize system
+            logger.info(f"Initializing system: {args.system}")
+            system = get_system(args.system, model_name=args.model, device=device)
             
-            logger.info("Evaluation completed successfully!")
+            # Create pipeline
+            pipeline = ConformalEvaluationPipeline(system)
             
-        finally:
-            # Cleanup temporary files
-            cleanup_temp_files(cal_path, test_path)
-    
-    except Exception as e:
-        logger.error(f"Evaluation failed: {e}")
-        sys.exit(1)
+            # Save temporary files
+            cal_path, test_path = save_temp_files(data, args.output)
+            
+            try:
+                # Run evaluation
+                logger.info("Starting evaluation...")
+                results = pipeline.run_evaluation(
+                    calibration_data_path=cal_path,
+                    test_data_path=test_path,
+                    alpha=args.alpha,
+                    output_dir=args.output
+                )
+                
+                # Print results
+                print_results(results)
+                
+                logger.info("Evaluation completed successfully!")
+                
+            finally:
+                # Cleanup temporary files
+                cleanup_temp_files(cal_path, test_path)
+        
+        except Exception as e:
+            logger.error(f"Evaluation failed: {e}")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

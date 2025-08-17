@@ -73,6 +73,64 @@ def test_evaluation():
     
     return True
 
+
+def test_config_mode():
+    """Test evaluation using config file."""
+    print("Testing config file mode...")
+    
+    # Run with config file
+    cmd = [sys.executable, "cli.py", 
+           "--config", "configs/simplellm_example.yaml"]
+    
+    print(f"Running: {' '.join(cmd)}")
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    
+    if result.returncode != 0:
+        print(f"✗ Config evaluation failed: {result.stderr}")
+        print(f"Stdout: {result.stdout}")
+        return False
+    
+    print("✓ Config evaluation completed successfully")
+    
+    # Check that output files were created
+    if os.path.exists("results/simplellm_example"):
+        files = os.listdir("results/simplellm_example")
+        json_files = [f for f in files if f.endswith('.json')]
+        if len(json_files) >= 3:
+            print(f"✓ Config output files created: {json_files}")
+        else:
+            print(f"✗ Expected at least 3 output files, got {len(json_files)}")
+            return False
+    else:
+        print("✗ Config output directory not created")
+        return False
+    
+    return True
+
+
+def test_auto_discovery():
+    """Test that auto-discovery finds systems correctly."""
+    print("Testing auto-discovery of systems...")
+    
+    try:
+        from systems import AVAILABLE_SYSTEMS
+        discovered_systems = list(AVAILABLE_SYSTEMS.keys())
+        print(f"✓ Auto-discovered systems: {discovered_systems}")
+        
+        # Should find at least simplellm and simplerag
+        expected_systems = ['simplellm', 'simplerag']
+        for system in expected_systems:
+            if system not in discovered_systems:
+                print(f"✗ Expected system '{system}' not found in auto-discovered systems")
+                return False
+        
+        print(f"✓ All expected systems found")
+        return True
+        
+    except Exception as e:
+        print(f"✗ Auto-discovery failed: {e}")
+        return False
+
 def main():
     """Run all tests."""
     print("Running URAG CLI tests...")
@@ -81,7 +139,9 @@ def main():
     tests = [
         ("Help", test_help),
         ("System Imports", test_list_systems),
-        ("Evaluation", test_evaluation)
+        ("Auto Discovery", test_auto_discovery),
+        ("Evaluation", test_evaluation),
+        ("Config Mode", test_config_mode)
     ]
     
     passed = 0

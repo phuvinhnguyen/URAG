@@ -2,18 +2,52 @@
 RAG Systems Registry
 
 This module provides a centralized way to access different RAG system implementations.
+Auto-discovers systems from the systems/ directory using importlib.
 """
 
+import os
+import importlib
+import inspect
 from typing import Dict, Any
 from .abstract import AbstractRAGSystem
-from .simplellm import SimpleLLMSystem
-from .simplerag import SimpleRAGSystem
 
-# Registry of available systems
-AVAILABLE_SYSTEMS = {
-    'simplellm': SimpleLLMSystem,
-    'simplerag': SimpleRAGSystem,
-}
+def _discover_systems() -> Dict[str, Any]:
+    """
+    Auto-discover RAG systems from the systems directory.
+    
+    Returns:
+        Dictionary mapping system names to their classes
+    """
+    systems = {}
+    current_dir = os.path.dirname(__file__)
+    
+    # Iterate through all Python files in the systems directory
+    for filename in os.listdir(current_dir):
+        if filename.endswith('.py') and filename not in ['__init__.py', 'abstract.py']:
+            module_name = filename[:-3]  # Remove .py extension
+            
+            try:
+                # Import the module
+                module = importlib.import_module(f'systems.{module_name}')
+                
+                # Find classes that inherit from AbstractRAGSystem
+                for name, obj in inspect.getmembers(module, inspect.isclass):
+                    if (issubclass(obj, AbstractRAGSystem) and 
+                        obj != AbstractRAGSystem and 
+                        obj.__module__ == module.__name__):
+                        
+                        # Use the module name as the system name
+                        systems[module_name] = obj
+                        break
+                        
+            except Exception as e:
+                print(f"Warning: Could not import system {module_name}: {e}")
+                continue
+    
+    return systems
+
+# Auto-discover available systems
+AVAILABLE_SYSTEMS = _discover_systems()
 
 
 def get_system(system_name: str, **kwargs) -> AbstractRAGSystem:

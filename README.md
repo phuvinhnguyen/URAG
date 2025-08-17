@@ -28,6 +28,12 @@ python cli.py --system simplellm --dataset datasets/example.json
 python cli.py --system <system_name> --dataset <dataset_path>
 ```
 
+### YAML Configuration
+
+```bash
+python cli.py --config <config_file.yaml>
+```
+
 ### Full Options
 
 ```bash
@@ -43,14 +49,15 @@ python cli.py \
 
 ### Parameters
 
-- `--system`: System to evaluate (required)
+- `--config`: Path to YAML configuration file (alternative to individual options)
+- `--system`: System to evaluate (required if not using config)
   - `simplellm`: Simple LLM baseline without RAG
   - `simplerag`: Simple RAG system with keyword-based retrieval
-- `--dataset`: Path to dataset JSON file (required)
+- `--dataset`: Path to dataset JSON file (required if not using config)
 - `--output`: Output directory for results (default: `results/`)
 - `--alpha`: Conformal prediction error rate (default: `0.1` for 90% coverage)
 - `--model`: HuggingFace model name (default: `microsoft/DialoGPT-small`)
-- `--device`: Device to use - `auto`, `cpu`, or `cuda` (default: `auto`)
+- `--device`: Device to use - `auto`, `cpu`, or `cuda` (default: `auto`, auto-detects best available)
 - `--verbose`: Enable detailed logging
 
 ## Example Commands
@@ -73,6 +80,15 @@ python cli.py --system simplellm --dataset datasets/example.json --model microso
 ### Verbose Output
 ```bash
 python cli.py --system simplellm --dataset datasets/example.json --verbose
+```
+
+### YAML Configuration Files
+```bash
+# Use predefined config
+python cli.py --config configs/simplellm_example.yaml
+
+# Use comprehensive dataset with RAG
+python cli.py --config configs/simplerag_comprehensive.yaml
 ```
 
 ### Compare Systems
@@ -130,6 +146,40 @@ For each sample in `calibration` and `test`:
 - `domain`: Question domain/category
 - `context`: Additional context for RAG systems
 - `search_results`: Pre-retrieved context
+
+## YAML Configuration Format
+
+Configuration files use YAML format for easy editing and version control:
+
+```yaml
+# System configuration
+system:
+  name: simplellm  # System name (must match filename in systems/)
+  args:
+    model_name: microsoft/DialoGPT-small  # Model parameters
+    alpha: 0.1  # Conformal prediction confidence level
+    # device: cuda  # Optional: override auto-detection
+
+# Data and output paths
+dataset: datasets/example.json
+output: results/my_experiment
+
+# Additional system-specific parameters can be added under args:
+```
+
+### YAML Configuration Features
+
+- **Auto Device Detection**: Device is automatically detected (CUDA > MPS > CPU) unless overridden
+- **Flexible Parameters**: All system constructor arguments can be specified in `args`
+- **System Auto-Discovery**: Systems are automatically discovered from `systems/` directory
+- **Validation**: Configuration is validated before execution
+
+### Example Configurations
+
+See the `configs/` directory for examples:
+- `configs/simplellm_example.yaml`: Basic LLM evaluation
+- `configs/simplerag_comprehensive.yaml`: RAG system with larger dataset
+- `configs/comparison.yaml`: Template for comparing systems
 
 ## Metrics Explained
 
@@ -197,19 +247,22 @@ python cli.py --system simplerag --dataset datasets/example.json
 
 ## Adding New Systems
 
-To add a new RAG system:
+Adding new systems is now automatic! Just create a new file in the `systems/` directory.
 
-1. **Create system class** inheriting from `AbstractRAGSystem`:
+### Step 1: Create System File
+
+Create a new Python file in `systems/` directory (e.g., `systems/mysystem.py`):
 
 ```python
-# systems/my_system.py
+# systems/mysystem.py
 from systems.abstract import AbstractRAGSystem
 from typing import Dict, Any
 
 class MyRAGSystem(AbstractRAGSystem):
     def __init__(self, **kwargs):
-        # Initialize your system
-        pass
+        # Initialize your system with any parameters
+        # All kwargs from config file 'args' section will be passed here
+        self.my_parameter = kwargs.get('my_parameter', 'default_value')
     
     def get_batch_size(self) -> int:
         return 1
@@ -224,22 +277,40 @@ class MyRAGSystem(AbstractRAGSystem):
         }
 ```
 
-2. **Register in systems/__init__.py**:
+### Step 2: Use Immediately
 
-```python
-from .my_system import MyRAGSystem
+The system is automatically discovered! Use it right away:
 
-AVAILABLE_SYSTEMS = {
-    'simplellm': SimpleLLMSystem,
-    'mysystem': MyRAGSystem,  # Add your system
-}
-```
-
-3. **Use your system**:
-
+**Command Line:**
 ```bash
 python cli.py --system mysystem --dataset datasets/example.json
 ```
+
+**YAML Config:**
+```yaml
+system:
+  name: mysystem  # Filename without .py extension
+  args:
+    my_parameter: custom_value
+    model_name: microsoft/DialoGPT-medium
+
+dataset: datasets/example.json
+output: results/mysystem_test
+```
+
+### Auto-Discovery Features
+
+- ✅ **No Registration Required**: Systems are found automatically using `importlib`
+- ✅ **Filename = System Name**: Use the filename (without `.py`) as the system name
+- ✅ **Flexible Parameters**: Pass any parameters via config file `args` section
+- ✅ **Immediate Availability**: New systems work immediately without code changes
+- ✅ **Error Handling**: Import errors are logged but don't break other systems
+
+### System Naming Convention
+
+- File: `systems/myawesomesystem.py` → System name: `myawesomesystem`
+- File: `systems/gpt4_rag.py` → System name: `gpt4_rag`
+- File: `systems/experimental.py` → System name: `experimental`
 
 ## Example Results
 
