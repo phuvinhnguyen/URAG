@@ -93,11 +93,11 @@ python cli.py --config configs/simplerag_comprehensive.yaml
 
 ### Compare Systems
 ```bash
-# Evaluate SimpleLLM
-python cli.py --system simplellm --dataset datasets/comprehensive.json --output results_simplellm/
-
-# Evaluate SimpleRAG  
-python cli.py --system simplerag --dataset datasets/comprehensive.json --output results_simplerag/
+python compare_performance.py <path_to_result_1.json> <path_to_result_2.json> <output_path>
+```
+Example:
+```bash
+python compare_performance.py ../results/a.json ../results/b.json ../test.json
 ```
 
 ## Dataset Format
@@ -167,13 +167,6 @@ output: results/my_experiment
 # Additional system-specific parameters can be added under args:
 ```
 
-### YAML Configuration Features
-
-- **Auto Device Detection**: Device is automatically detected (CUDA > MPS > CPU) unless overridden
-- **Flexible Parameters**: All system constructor arguments can be specified in `args`
-- **System Auto-Discovery**: Systems are automatically discovered from `systems/` directory
-- **Validation**: Configuration is validated before execution
-
 ### Example Configurations
 
 See the `configs/` directory for examples:
@@ -188,13 +181,19 @@ See the `configs/` directory for examples:
 - **Accuracy**: Standard classification accuracy (higher is better)
 - **LAC Coverage**: Proportion of correct answers in LAC prediction sets
 - **APS Coverage**: Proportion of correct answers in APS prediction sets  
-- **LAC Avg Set Size**: Average size of LAC prediction sets (smaller is better)
-- **APS Avg Set Size**: Average size of APS prediction sets (smaller is better)
+- **Average Coverage**: Average of LAC Coverage and APS Coverage
+- **LAC Average Set Size**: Average size of LAC prediction sets (smaller is better)
+- **APS Average Set Size**: Average size of APS prediction sets (smaller is better)
+- **Average Set Size**: Average of APS Average Set Size and LAC Average Set Size
+- **LAC Set Size**: In comparison, this metric compares LAC sample by sample before taking average
+- **APS Set Size**: In comparison, this metric compares APS sample by sample before taking average
+- **Set Size**: In comparison, this metric computes Set Size sample by sample, then compare this score sample by sample before taking average
 
 ### Conformal Prediction Methods
 
 - **LAC (Least Ambiguous Classifier)**: Simple threshold on class probabilities
 - **APS (Adaptive Prediction Sets)**: Adaptive threshold based on cumulative probability
+- **Set size**: $\frac{LAC+APS}{2}$
 
 Both methods provide **statistical coverage guarantees**: for confidence level (1-α), the prediction sets satisfy P(y_true ∈ C(x)) ≥ 1-α.
 
@@ -297,21 +296,6 @@ system:
 dataset: datasets/example.json
 output: results/mysystem_test
 ```
-
-### Auto-Discovery Features
-
-- ✅ **No Registration Required**: Systems are found automatically using `importlib`
-- ✅ **Filename = System Name**: Use the filename (without `.py`) as the system name
-- ✅ **Flexible Parameters**: Pass any parameters via config file `args` section
-- ✅ **Immediate Availability**: New systems work immediately without code changes
-- ✅ **Error Handling**: Import errors are logged but don't break other systems
-
-### System Naming Convention
-
-- File: `systems/myawesomesystem.py` → System name: `myawesomesystem`
-- File: `systems/gpt4_rag.py` → System name: `gpt4_rag`
-- File: `systems/experimental.py` → System name: `experimental`
-
 ## Example Results
 
 ```
@@ -335,87 +319,3 @@ Output Files:
   Metrics: results/evaluation_metrics_20241201_143022.json
 ============================================================
 ```
-
-## Advanced Usage
-
-### Custom Model Configuration
-
-```bash
-# Use a larger model
-python cli.py --system simplellm --dataset datasets/example.json --model microsoft/DialoGPT-medium
-
-# Force CPU usage
-python cli.py --system simplellm --dataset datasets/example.json --device cpu
-```
-
-### Different Confidence Levels
-
-```bash
-# 95% coverage (more conservative)
-python cli.py --system simplellm --dataset datasets/example.json --alpha 0.05
-
-# 80% coverage (less conservative) 
-python cli.py --system simplellm --dataset datasets/example.json --alpha 0.2
-```
-
-### Batch Evaluation
-
-For evaluating multiple systems:
-
-```bash
-#!/bin/bash
-for system in simplellm; do
-  for alpha in 0.05 0.1 0.2; do
-    echo "Evaluating $system with alpha=$alpha"
-    python cli.py --system $system --dataset datasets/example.json --alpha $alpha --output results/${system}_alpha${alpha}/
-  done
-done
-```
-
-## Troubleshooting
-
-### Common Issues
-
-1. **CUDA out of memory**: Use smaller model or CPU
-   ```bash
-   python cli.py --system simplellm --dataset datasets/example.json --device cpu
-   ```
-
-2. **Model download fails**: Check internet connection and HuggingFace model name
-
-3. **Dataset format errors**: Validate JSON structure and required fields
-
-### Debug Mode
-
-Enable verbose logging for detailed information:
-
-```bash
-python cli.py --system simplellm --dataset datasets/example.json --verbose
-```
-
-## Performance Tips
-
-1. **Use appropriate device**: GPU for larger models, CPU for smaller ones
-2. **Batch size optimization**: Larger systems can process multiple samples at once
-3. **Model selection**: Balance between accuracy and speed based on your needs
-
-## Citation
-
-If you use this framework in your research, please cite:
-
-```bibtex
-@software{urag2024,
-  title={URAG: Uncertainty-aware RAG Evaluation with Conformal Prediction},
-  year={2024},
-  url={<repository-url>}
-}
-```
-
-## References
-
-- Romano et al. "Conformalized Quantile Regression" (2019)
-- Angelopoulos et al. "Uncertainty Sets for Image Classifiers using Conformal Prediction" (2020)
-
-## License
-
-[License information here]
