@@ -34,6 +34,7 @@ from tqdm.auto import tqdm
 from systems.simplellm import SimpleLLMSystem
 from systems.abstract import AbstractRAGSystem
 from metrics import ConformalMetrics
+from sklearn.metrics import roc_auc_score
 
 
 class SystemEvaluator:
@@ -176,6 +177,8 @@ class ConformalEvaluationPipeline:
         aps_coverage = 0
         lac_set_sizes = []
         aps_set_sizes = []
+        auc_label = []
+        auc_predict = []
         
         for result in test_results:
             if 'conformal_probabilities' not in result or not result['conformal_probabilities']:
@@ -184,6 +187,10 @@ class ConformalEvaluationPipeline:
             correct_answer = result.get('correct_answer', result.get('answer'))
             probabilities = result['conformal_probabilities']
             predicted_answer = result.get('predicted_answer', '')
+
+            for l, p in probabilities.items():
+                auc_label.append(1 if l == correct_answer else 0)
+                auc_predict.append(p)
             
             # Accuracy
             if predicted_answer == correct_answer:
@@ -199,7 +206,18 @@ class ConformalEvaluationPipeline:
             aps_pred_set = self.metrics.compute_prediction_set_aps(probabilities, aps_threshold)
             if correct_answer in aps_pred_set:
                 aps_coverage += 1
-            aps_set_sizes.append(len(aps_pred_set))
+            aps_set_sizes.append(len(aps_pred_set))       
+
+        auroc = roc_auc_score(auc_label, auc_predict)
+        order = np.argsort(-auc_predict)
+        label_sorted = auc_label[order]
+        n = len(label_sorted)
+        r_grid = np.linspace(0, 1, 1001)
+        acc_curve = []
+        for r in r_grid:
+            keep = max(1, int(np.round((1 - r) * n)))
+            acc_curve.append(label_sorted[:keep].mean())
+        aurac = np.trapz(acc_curve, r_grid)
         
         results = {
             'total_samples': total_samples,
@@ -210,6 +228,8 @@ class ConformalEvaluationPipeline:
             'aps_avg_set_size': np.mean(aps_set_sizes) if aps_set_sizes else 0.0,
             'lac_set_sizes': lac_set_sizes,
             'aps_set_sizes': aps_set_sizes,
+            'auroc': auroc,
+            'aurac': aurac,
             'thresholds': {
                 'lac_threshold': lac_threshold,
                 'aps_threshold': aps_threshold
