@@ -208,6 +208,8 @@ class ConformalEvaluationPipeline:
                 aps_coverage += 1
             aps_set_sizes.append(len(aps_pred_set))       
 
+        auc_label = np.array(auc_label)
+        auc_predict = np.array(auc_predict)
         auroc = roc_auc_score(auc_label, auc_predict)
         order = np.argsort(-auc_predict)
         label_sorted = auc_label[order]
