@@ -161,6 +161,11 @@ class ConformalEvaluationPipeline:
         
         return lac_threshold, aps_threshold
     
+    def isequal(self, prediction, label):
+        label = label.lower().strip()
+        prediction = prediction.lower().strip()
+        return label in prediction
+
     def evaluate_with_conformal_prediction(self, test_results: List[Dict[str, Any]], 
                                          lac_threshold: float, aps_threshold: float) -> Dict[str, Any]:
         """
@@ -192,11 +197,11 @@ class ConformalEvaluationPipeline:
             predicted_answer = result.get('predicted_answer', '')
 
             for l, p in probabilities.items():
-                auc_label.append(1 if l == correct_answer else 0)
+                auc_label.append(1 if self.isequal(l, correct_answer) else 0)
                 auc_predict.append(p)
             
             # Accuracy
-            if predicted_answer == correct_answer:
+            if self.isequal(predicted_answer, correct_answer):
                 correct_predictions += 1
             
             # LAC prediction set and coverage
@@ -211,18 +216,23 @@ class ConformalEvaluationPipeline:
                 aps_coverage += 1
             aps_set_sizes.append(len(aps_pred_set))       
 
-        auc_label = np.array(auc_label)
-        auc_predict = np.array(auc_predict)
-        auroc = roc_auc_score(auc_label, auc_predict)
-        order = np.argsort(-auc_predict)
-        label_sorted = auc_label[order]
-        n = len(label_sorted)
-        r_grid = np.linspace(0, 1, 1001)
-        acc_curve = []
-        for r in r_grid:
-            keep = max(1, int(np.round((1 - r) * n)))
-            acc_curve.append(label_sorted[:keep].mean())
-        aurac = np.trapz(acc_curve, r_grid)
+        try:
+            auc_label = np.array(auc_label)
+            auc_predict = np.array(auc_predict)
+            auroc = roc_auc_score(auc_label, auc_predict)
+            order = np.argsort(-auc_predict)
+            label_sorted = auc_label[order]
+            n = len(label_sorted)
+            r_grid = np.linspace(0, 1, 1001)
+            acc_curve = []
+            for r in r_grid:
+                keep = max(1, int(np.round((1 - r) * n)))
+                acc_curve.append(label_sorted[:keep].mean())
+            aurac = np.trapz(acc_curve, r_grid)
+        except Exception as e:
+            auroc = None
+            aurac = None
+            print(e)
         
         results = {
             'total_samples': total_samples,
