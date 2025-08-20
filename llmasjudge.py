@@ -5,12 +5,15 @@ from typing import List, Tuple, Set, Union
 from loguru import logger
 
 try:
-    from transformers import pipeline
+    from transformers import pipeline, AutoTokenizer
     
     transformer_llm = pipeline(
         "text-generation", 
         model=os.getenv("HF_MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct"),
-        device_map="auto"
+        device_map="auto",
+        tokenizer=AutoTokenizer.from_pretrained(os.getenv("HF_MODEL_NAME", "meta-llama/Llama-3.1-8B-Instruct"),
+                                                trust_remote_code=True),
+        batch_size=32
     )
     use_transformer = True
 except:
@@ -138,11 +141,12 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
     """Call Transformers pipeline for inference."""
     global use_transformer
     
-    try:        
+    try:
+        print(prompts)
         outputs = transformer_llm(
             prompts, 
             max_new_tokens=10, 
-            temperature=0.1, 
+            temperature=0.7, 
             do_sample=True,
             return_full_text=False
         )
@@ -198,6 +202,7 @@ def correct_prediction(predictions: List[str],
     prompts = [_get_few_shot_prompt(pred, labels) for pred, corr in zip(predictions, correctness) if corr == 0]
     
     # Try backends in order of preference
+    logger.info(f"Trying backends in order of preference: API: {use_api}, VLLM: {use_vllm}, Transformer: {use_transformer}")
     if use_api:
         try:
             correct, _ = call_api(prompts)
