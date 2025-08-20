@@ -13,8 +13,7 @@ import os
 import sys
 import yaml
 import torch
-from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from loguru import logger
 from mc_evaluation import ConformalEvaluationPipeline

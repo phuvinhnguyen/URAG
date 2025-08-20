@@ -75,15 +75,18 @@ class SystemEvaluator:
         for i, result in enumerate(raw_results):
             # Copy original sample data
             sample = samples[i] if i < len(samples) else {}
-            processed_result = sample.copy()
             
             # Update with system results
-            processed_result.update({
+            processed_result = {
                 'generated_response': result.get('generated_response', ''),
                 'predicted_answer': result.get('predicted_answer', 'Unknown'),
                 'conformal_probabilities': result.get('option_probabilities', {}),
-                'available_options': sample.get('options', [])
-            })
+                'available_options': sample.get('options', []),
+                'id': sample.get('id', 'unknown'),
+                'question': sample.get('question', ''),
+                'correct_answer': sample.get('correct_answer', ''),
+                'options': sample.get('options', []),
+            }
             
             # Add any additional fields from the system
             for key, value in result.items():
