@@ -163,7 +163,7 @@ def run_from_config(config_path: str, verbose: bool = False) -> Dict[str, Any]:
             logger.info("Starting evaluation...")
             
             # Extract alpha from system args or use default
-            alpha = system_args.get('alpha', 0.1)
+            alpha = system_config.get('alpha', 0.1)
             
             results = pipeline.run_evaluation(
                 calibration_data_path=cal_path,

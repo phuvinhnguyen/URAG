@@ -152,7 +152,7 @@ class ConformalEvaluationPipeline:
             return 0.5, 0.5
         
         n = len(lac_scores)
-        q_level = np.ceil((n + 1) * (1 - alpha)) / n
+        q_level = np.clip(np.ceil((n + 1) * (1 - alpha)) / n, 0, 1)
         
         lac_threshold = np.quantile(lac_scores, q_level)
         aps_threshold = np.quantile(aps_scores, q_level)

@@ -3,6 +3,7 @@
 
 system:
   name: simplellm
+  alpha: 0.5
   args:
     model_name: Qwen/Qwen3-0.6B
     # device is auto-detected if not specified
