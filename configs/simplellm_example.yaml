@@ -7,5 +7,5 @@ system:
     model_name: Qwen/Qwen3-0.6B
     # device is auto-detected if not specified
 
-dataset: datasets/example.json
+dataset: datasets/crag_task_1_and_2_example.json
 output: results/simplellm_example
