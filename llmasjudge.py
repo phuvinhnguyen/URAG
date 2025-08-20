@@ -117,7 +117,7 @@ def call_vllm(prompts: List[str]) -> Tuple[List[int], Set[str]]:
     try:
         sampling_params = SamplingParams(
             temperature=0.1, 
-            max_tokens=10, 
+            max_tokens=1024, 
             stop=["</answer>"]
         )
         
@@ -142,14 +142,14 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
     global use_transformer
     
     try:
-        print(prompts)
         outputs = transformer_llm(
             prompts, 
-            max_new_tokens=10, 
+            max_new_tokens=1024, 
             temperature=0.7, 
             do_sample=True,
             return_full_text=False
         )
+        print(prompts)
         
         responses = []
         for output in outputs:
@@ -163,6 +163,7 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
                 text += '</answer>'
             responses.append(text)
         
+        print('-'*30)
         return _parse_responses(responses, [])  # predictions will be passed separately
         
     except Exception as e:
