@@ -153,10 +153,13 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
         
         responses = []
         for output in outputs:
-            if isinstance(output, list):
+            if isinstance(output, list) and output:
                 text = output[0]['generated_text']
-            else:
+            elif isinstance(output, dict):
                 text = output['generated_text']
+            else:
+                print(output)
+                text = '<answer>Wrong</answer>'
             
             text = text.strip()
             if not text.endswith('</answer>'):
