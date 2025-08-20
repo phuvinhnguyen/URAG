@@ -162,9 +162,15 @@ class ConformalEvaluationPipeline:
         return lac_threshold, aps_threshold
     
     def isequal(self, prediction, label):
+        # TODO: implement LLM judge for CRAG
         label = label.lower().strip()
         prediction = prediction.lower().strip()
-        return label in prediction
+
+        if label == prediction: return True
+        elif 'invalid' in prediction and 'invalid' in label: return True
+        elif 'invalid' in prediction and 'invalid' not in label: return False
+        elif 'invalid' not in prediction and 'invalid' in label: return False
+        else: return label in prediction
 
     def evaluate_with_conformal_prediction(self, test_results: List[Dict[str, Any]], 
                                          lac_threshold: float, aps_threshold: float) -> Dict[str, Any]:

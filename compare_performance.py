@@ -72,6 +72,11 @@ def compute_comparisons(scores1: Dict[str, float], scores2: Dict[str, float]) ->
     for metric in scores1.keys():
         val1 = scores1[metric]
         val2 = scores2[metric]
+
+        if val1 == None or val2 == None:
+            comparison['ratios'][metric] = None
+            comparison['differences'][metric] = None
+            continue
         
         if isinstance(val1, list) and isinstance(val2, list):
             ratio = (np.array(val1) / np.array(val2)).mean().item()

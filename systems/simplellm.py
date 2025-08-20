@@ -44,17 +44,17 @@ class SimpleLLMSystem(AbstractRAGSystem):
         technique = sample.get('technique', 'direct')
         
         if technique == 'cot':
-            return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your choice."
+            return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your answer."
         elif technique == 'rag':
             # For simple LLM, just mention if context exists but don't use it effectively
             context = sample.get('search_results', sample.get('context', ''))
             if context:
                 return f"Context information: {context}\n\nQuestion: {question}\n\nPlease provide your final answer in the format <answer>X</answer>."
             else:
-                return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your choice."
+                return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
         else:
             # Direct prompting
-            return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your choice."
+            return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
     
     def _generate_response(self, prompt: str, max_length: int = 200, temperature: float = 0.7) -> str:
         """Generate response from the LLM."""
