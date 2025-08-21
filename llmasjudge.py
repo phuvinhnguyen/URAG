@@ -102,10 +102,13 @@ def call_api(prompts: List[str]) -> Tuple[List[int], Set[str]]:
 
         responses = litellm.batch_completion(requests, max_retries=max_retries, timeout=60)
 
-        for response in responses:
+        for response, promp in zip(responses, prompts):
             content = response.choices[0].message.content.strip()
             if not content.endswith('</answer>'):
                 content += '</answer>'
+            print(promp)
+            print(response)
+            print("-"*100)
             responses.append(content)
 
         return _parse_responses(responses, [extract_prediction(r) for r in prompts])
