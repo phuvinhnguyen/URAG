@@ -35,21 +35,24 @@ except:
 
 def _get_few_shot_prompt(prediction: str, labels: str, question: str) -> str:
     """Generate evaluation prompt with few-shot examples."""    
-    return f"""Here are examples of evaluating predictions:
+    return f"""Evaluate each answer by checking whether the prediction matches any acceptable label.
 
 Question: What is the capital of France?
 Prediction: The capital of France is Paris
 Label(s): Paris
+Prediction contains "Paris", matching the label.
 <answer>Correct</answer>
 
 Question: London is a city or a capital?
 Prediction: London is a city
 Label(s): London is the capital of England
+Label says "capital"; prediction only says "city", which is wrong.
 <answer>Wrong</answer>
 
 Question: What is developed by Einstein?
 Prediction: Einstein developed the theory of relativity
 Label(s): theory of relativity; relativity theory
+Prediction's phrase "theory of relativity" appears in the labels.
 <answer>Correct</answer>
 
 Now evaluate:
@@ -161,7 +164,7 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
     try:
         outputs = transformer_llm(
             prompts, 
-            max_new_tokens=1024, 
+            max_new_tokens=64, 
             temperature=0.7, 
             do_sample=True,
             return_full_text=False
@@ -177,9 +180,7 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
                 print(output)
                 text = '<answer>Wrong</answer>'
             
-            text = text.strip()
-            if not text.endswith('</answer>'):
-                text += '</answer>'
+            text = text.split("</answer>")[0].strip() + "</answer>"
             print(promp)
             print(text)
             print("-"*100)
