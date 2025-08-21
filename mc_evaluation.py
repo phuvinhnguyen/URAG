@@ -197,7 +197,7 @@ class ConformalEvaluationPipeline:
             probabilities = result['conformal_probabilities']
             predicted_answer = result.get('predicted_answer', '')
 
-            correctness, correct_set = correct_prediction(list(probabilities.keys()), correct_answer)
+            correctness, correct_set = correct_prediction(list(probabilities.keys()), correct_answer, result['question'])
             auc_label += correctness
             auc_predict += list(probabilities.values())
             

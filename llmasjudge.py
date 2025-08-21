@@ -33,29 +33,34 @@ try:
 except:
     use_api = False
 
-def _get_few_shot_prompt(prediction: str, labels: str) -> str:
+def _get_few_shot_prompt(prediction: str, labels: str, question: str) -> str:
     """Generate evaluation prompt with few-shot examples."""    
     return f"""Here are examples of evaluating predictions:
 
+Question: What is the capital of France?
 Prediction: The capital of France is Paris
 Label(s): Paris
 <answer>Correct</answer>
 
+Question: London is a city or a capital?
 Prediction: London is a city
 Label(s): London is the capital of England
 <answer>Wrong</answer>
 
+Question: What is developed by Einstein?
 Prediction: Einstein developed the theory of relativity
 Label(s): theory of relativity; relativity theory
 <answer>Correct</answer>
 
 Now evaluate:
+Question: {question}
 Prediction: {prediction}
 Label(s): {labels}
-<answer>"""
+"""
 
 def extract_prediction(text: str) -> str:
-    match = re.search(r'Now evaluate:\nPrediction:\s*(.*?)(?=\s*Label\(s\):|$)', text, re.DOTALL | re.IGNORECASE)
+    text = text.split("\nNow evaluate:")[-1].strip()
+    match = re.search(r'Prediction:\s*(.*?)(?=\s*Label\(s\):|$)', text, re.DOTALL | re.IGNORECASE)
     if match:
         return match.group(1).strip()
     return ""
@@ -66,8 +71,9 @@ def _parse_responses(responses: List[str], predictions: List[str]) -> Tuple[List
     correct_predictions = set()
     
     for i, response in enumerate(responses):
+        response = response.split("\nNow evaluate:")[-1].split("</answer>")[0].strip() + "</answer>"
         match = re.search(r'<answer>\s*(Correct|Wrong)\s*</answer>', response, re.IGNORECASE)
-        is_correct = match and match.group(1).lower() == 'correct' if match else 'correct' in response.lower()
+        is_correct = match and match.group(1).lower() == 'correct' if match else False
         
         correctness.append(1 if is_correct else 0)
         if is_correct:
@@ -188,6 +194,7 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
 
 def correct_prediction(predictions: List[str], 
                       labels: List[Union[str, List[str]]],
+                      question: str = None,
                       ) -> Tuple[List[int], Set[str]]:
     """
     Evaluate predictions against labels using available backends.
@@ -215,7 +222,7 @@ def correct_prediction(predictions: List[str],
     if isinstance(labels, List): labels = '; '.join(labels)
     
     # Generate prompts
-    prompts = [_get_few_shot_prompt(pred, labels) for pred, corr in zip(predictions, correctness) if corr == 0]
+    prompts = [_get_few_shot_prompt(pred, labels, question) for pred, corr in zip(predictions, correctness) if corr == 0]
     
     # Try backends in order of preference
     logger.info(f"Trying backends in order of preference: API: {use_api}, VLLM: {use_vllm}, Transformer: {use_transformer}")
