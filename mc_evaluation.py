@@ -20,22 +20,16 @@ Data format:
 
 import json
 import os
-import re
-import torch
 import numpy as np
 from datetime import datetime
-from typing import List, Dict, Any, Tuple, Optional
-from abc import ABC, abstractmethod
+from typing import List, Dict, Any, Tuple
 
-import torch.nn.functional as F
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from loguru import logger
-from tqdm.auto import tqdm
 from systems.simplellm import SimpleLLMSystem
 from systems.abstract import AbstractRAGSystem
 from metrics import ConformalMetrics
 from sklearn.metrics import roc_auc_score
-
+from llmasjudge import correct_prediction
 
 class SystemEvaluator:
     """
@@ -162,7 +156,6 @@ class ConformalEvaluationPipeline:
         return lac_threshold, aps_threshold
     
     def isequal(self, prediction, label):
-        # TODO: implement LLM judge for CRAG
         label = label.lower().strip()
         prediction = prediction.lower().strip()
 
@@ -170,7 +163,9 @@ class ConformalEvaluationPipeline:
         elif 'invalid' in prediction and 'invalid' in label: return True
         elif 'invalid' in prediction and 'invalid' not in label: return False
         elif 'invalid' not in prediction and 'invalid' in label: return False
-        else: return label in prediction
+        else:
+            # TODO: implement LLM judge for CRAG
+            return label in prediction
 
     def evaluate_with_conformal_prediction(self, test_results: List[Dict[str, Any]], 
                                          lac_threshold: float, aps_threshold: float) -> Dict[str, Any]:
@@ -202,23 +197,23 @@ class ConformalEvaluationPipeline:
             probabilities = result['conformal_probabilities']
             predicted_answer = result.get('predicted_answer', '')
 
-            for l, p in probabilities.items():
-                auc_label.append(1 if self.isequal(l, correct_answer) else 0)
-                auc_predict.append(p)
+            correctness, correct_set = correct_prediction(list(probabilities.keys()), correct_answer, result['question'])
+            auc_label += correctness
+            auc_predict += list(probabilities.values())
             
             # Accuracy
-            if self.isequal(predicted_answer, correct_answer):
+            if predicted_answer in correct_set:
                 correct_predictions += 1
             
             # LAC prediction set and coverage
             lac_pred_set = self.metrics.compute_prediction_set_lac(probabilities, lac_threshold)
-            if correct_answer in lac_pred_set:
+            if not correct_set.isdisjoint(set(lac_pred_set)):
                 lac_coverage += 1
             lac_set_sizes.append(len(lac_pred_set))
             
             # APS prediction set and coverage
             aps_pred_set = self.metrics.compute_prediction_set_aps(probabilities, aps_threshold)
-            if correct_answer in aps_pred_set:
+            if not correct_set.isdisjoint(set(aps_pred_set)):
                 aps_coverage += 1
             aps_set_sizes.append(len(aps_pred_set))       
 
