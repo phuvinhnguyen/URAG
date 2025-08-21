@@ -1,6 +1,5 @@
 import os
 import re
-import time
 from typing import List, Tuple, Set, Union
 from loguru import logger
 
@@ -55,6 +54,12 @@ Prediction: {prediction}
 Label(s): {labels}
 <answer>"""
 
+def extract_prediction(text: str) -> str:
+    match = re.search(r'Now evaluate:\nPrediction:\s*(.*?)(?=\s*Label\(s\):|$)', text, re.DOTALL | re.IGNORECASE)
+    if match:
+        return match.group(1).strip()
+    return ""
+
 def _parse_responses(responses: List[str], predictions: List[str]) -> Tuple[List[int], Set[str]]:
     """Parse responses and return correctness list and correct predictions set."""
     correctness = []
@@ -103,7 +108,7 @@ def call_api(prompts: List[str]) -> Tuple[List[int], Set[str]]:
                 content += '</answer>'
             responses.append(content)
 
-        return _parse_responses(responses, [])
+        return _parse_responses(responses, [extract_prediction(r) for r in prompts])
         
     except Exception as e:
         logger.error(f"API call failed: {e}")
@@ -130,7 +135,7 @@ def call_vllm(prompts: List[str]) -> Tuple[List[int], Set[str]]:
                 generated_text += '</answer>'
             responses.append(generated_text)
         
-        return _parse_responses(responses, [])  # predictions will be passed separately
+        return _parse_responses(responses, [extract_prediction(r) for r in prompts])  # predictions will be passed separately
         
     except Exception as e:
         logger.error(f"VLLM call failed: {e}")
@@ -149,7 +154,6 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
             do_sample=True,
             return_full_text=False
         )
-        print(prompts)
         
         responses = []
         for output in outputs:
@@ -166,8 +170,7 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
                 text += '</answer>'
             responses.append(text)
         
-        print('-'*30)
-        return _parse_responses(responses, [])  # predictions will be passed separately
+        return _parse_responses(responses, [extract_prediction(r) for r in prompts])  # predictions will be passed separately
         
     except Exception as e:
         logger.error(f"Transformer call failed: {e}")
