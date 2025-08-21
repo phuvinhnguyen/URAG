@@ -64,6 +64,42 @@ class HyDERAGSystem(AbstractRAGSystem):
         """Return batch size."""
         return 1
     
+    def _extract_existing_documents(self, sample: Dict[str, Any]) -> List[str]:
+        """Extract documents from search_results field if available."""
+        search_results = sample.get('search_results', [])
+        documents = []
+        
+        if isinstance(search_results, list):
+            # CRAG format: array of document objects
+            for doc in search_results:
+                if isinstance(doc, dict):
+                    # Try different possible content fields
+                    content = (doc.get('content', '') or 
+                             doc.get('text', '') or 
+                             doc.get('page_content', '') or
+                             doc.get('snippet', '') or
+                             doc.get('body', ''))
+                    
+                    # If no content field, concatenate page_name and available text
+                    if not content:
+                        page_name = doc.get('page_name', '')
+                        title = doc.get('title', '')
+                        summary = doc.get('summary', '')
+                        if page_name or title or summary:
+                            content = f"{title or page_name}\n{summary}".strip()
+                    
+                    if content:
+                        documents.append(content)
+                elif isinstance(doc, str):
+                    # Simple string format
+                    documents.append(doc)
+        elif isinstance(search_results, str):
+            # Simple string format
+            documents.append(search_results)
+        
+        logger.debug(f"Extracted {len(documents)} existing documents from search_results")
+        return documents
+
     def _extract_keywords(self, text: str) -> List[str]:
         """Extract keywords from text for matching."""
         # Simple keyword extraction - remove common words and extract meaningful terms
@@ -102,8 +138,42 @@ class HyDERAGSystem(AbstractRAGSystem):
         
         return final_score
     
+    def _retrieve_from_existing_docs(self, question: str, hypothetical_doc: str, existing_docs: List[str]) -> List[str]:
+        """HyDE-enhanced retrieval from existing documents (e.g., from CRAG dataset)."""
+        if not existing_docs:
+            return []
+        
+        retrieved_docs = []
+        scored_docs = []
+        
+        for i, doc in enumerate(existing_docs):
+            # Compute similarity with hypothetical document
+            hyde_score = self._compute_semantic_similarity(hypothetical_doc, doc)
+            
+            # Also check for direct question relevance
+            question_keywords = set(self._extract_keywords(question))
+            doc_keywords = set(self._extract_keywords(doc))
+            keyword_overlap = len(question_keywords.intersection(doc_keywords))
+            keyword_score = keyword_overlap / max(len(question_keywords), 1)
+            
+            # Combine HyDE score with keyword relevance
+            final_score = 0.7 * hyde_score + 0.3 * keyword_score
+            
+            if final_score > 0.05:  # Lower threshold for existing docs
+                scored_docs.append((final_score, i, doc, hyde_score, keyword_score))
+        
+        # Sort by score and take top results
+        scored_docs.sort(key=lambda x: x[0], reverse=True)
+        
+        # Return top 3 documents
+        for final_score, doc_idx, doc, hyde_score, keyword_score in scored_docs[:3]:
+            retrieved_docs.append(doc)
+            logger.debug(f"Retrieved existing doc {doc_idx} (final_score={final_score:.3f}, hyde={hyde_score:.3f}, keyword={keyword_score:.3f}): {doc[:50]}...")
+        
+        return retrieved_docs
+
     def _retrieve_context_hyde(self, question: str, hypothetical_doc: str) -> List[str]:
-        """HyDE-enhanced retrieval using hypothetical document."""
+        """HyDE-enhanced retrieval using built-in knowledge base (fallback)."""
         retrieved_docs = []
         
         # Score each knowledge entry against the hypothetical document
@@ -136,7 +206,7 @@ class HyDERAGSystem(AbstractRAGSystem):
         # Return top 3 documents
         for final_score, keyword, doc, hyde_score, keyword_score in scored_docs[:3]:
             retrieved_docs.append(doc)
-            logger.debug(f"Retrieved (final_score={final_score:.3f}, hyde={hyde_score:.3f}, keyword={keyword_score}): {keyword} -> {doc[:50]}...")
+            logger.debug(f"Retrieved from KB (final_score={final_score:.3f}, hyde={hyde_score:.3f}, keyword={keyword_score}): {keyword} -> {doc[:50]}...")
         
         return retrieved_docs
     
@@ -178,46 +248,57 @@ class HyDERAGSystem(AbstractRAGSystem):
         hypothetical_doc = self.llm_system.generate_hypothetical_document(question)
         logger.info(f"Generated hypothetical document: {hypothetical_doc[:100]}...")
         
-        # Step 2: Retrieve relevant context using HyDE technique
-        hyde_retrieved_docs = self._retrieve_context_hyde(question, hypothetical_doc)
+        # Step 2: Extract existing documents from dataset (if available)
+        existing_docs = self._extract_existing_documents(sample)
         
-        # Fallback to traditional retrieval if HyDE retrieval fails
-        if not hyde_retrieved_docs:
-            logger.info("HyDE retrieval failed, falling back to traditional retrieval")
-            hyde_retrieved_docs = self._retrieve_context_traditional(question)
+        # Step 3: Choose retrieval strategy based on available documents
+        if existing_docs:
+            # Use existing documents from dataset (CRAG case)
+            logger.info(f"Using {len(existing_docs)} existing documents from dataset")
+            hyde_retrieved_docs = self._retrieve_from_existing_docs(question, hypothetical_doc, existing_docs)
+            retrieval_method = 'existing_docs_hyde'
+            source_type = 'dataset_provided'
+        else:
+            # Use built-in knowledge base (Example case)
+            logger.info("No existing documents found, using built-in knowledge base")
+            hyde_retrieved_docs = self._retrieve_context_hyde(question, hypothetical_doc)
+            retrieval_method = 'knowledge_base_hyde' 
+            source_type = 'built_in_kb'
+            
+            # Fallback to traditional retrieval if HyDE retrieval fails
+            if not hyde_retrieved_docs:
+                logger.info("HyDE retrieval failed, falling back to traditional retrieval")
+                hyde_retrieved_docs = self._retrieve_context_traditional(question)
+                retrieval_method = 'traditional_fallback'
         
-        # Step 3: Augment sample with retrieved context
+        # Step 4: Augment sample with retrieved context
         augmented_sample = sample.copy()
         if hyde_retrieved_docs:
             # Combine retrieved documents
             retrieved_context = "\n".join(hyde_retrieved_docs)
-            
-            # Add to existing context if any
-            existing_context = sample.get('search_results', sample.get('context', ''))
-            if existing_context:
-                combined_context = f"{existing_context}\n\nHyDE Retrieved context:\n{retrieved_context}"
-            else:
-                combined_context = f"Context:\n{retrieved_context}"
+            combined_context = f"Context:\n{retrieved_context}"
             
             augmented_sample['search_results'] = combined_context
             augmented_sample['technique'] = 'hyde'
             
-            logger.debug(f"Enhanced sample with {len(hyde_retrieved_docs)} HyDE-retrieved documents")
+            logger.debug(f"Enhanced sample with {len(hyde_retrieved_docs)} HyDE-retrieved documents from {source_type}")
         else:
-            logger.debug("No relevant documents found for HyDE retrieval")
+            logger.debug(f"No relevant documents found for HyDE retrieval from {source_type}")
             augmented_sample['technique'] = 'hyde'
         
-        # Step 4: Process through HyDE LLM system
+        # Step 5: Process through HyDE LLM system
         result = self.llm_system.process_sample(augmented_sample)
         
-        # Step 5: Add HyDE-specific information
+        # Step 6: Add HyDE-specific information
         result.update({
             'retrieved_docs': hyde_retrieved_docs,
             'num_retrieved_docs': len(hyde_retrieved_docs),
+            'num_available_docs': len(existing_docs) if existing_docs else len(self.knowledge_base),
             'hyde_enhanced': bool(hyde_retrieved_docs),
             'system_type': 'hyde_rag',
             'hypothetical_document': hypothetical_doc,
-            'retrieval_method': 'hyde_semantic' if hyde_retrieved_docs else 'traditional_fallback'
+            'retrieval_method': retrieval_method,
+            'document_source': source_type
         })
         
         return result
