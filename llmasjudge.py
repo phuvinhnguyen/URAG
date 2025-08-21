@@ -107,7 +107,7 @@ def call_api(prompts: List[str]) -> Tuple[List[int], Set[str]]:
             if not content.endswith('</answer>'):
                 content += '</answer>'
             print(promp)
-            print(response)
+            print(content)
             print("-"*100)
             responses.append(content)
 
@@ -132,10 +132,13 @@ def call_vllm(prompts: List[str]) -> Tuple[List[int], Set[str]]:
         outputs = vllm_llm.generate(prompts, sampling_params)
         responses = []
         
-        for output in outputs:
+        for output, promp in zip(outputs, prompts):
             generated_text = output.outputs[0].text.strip()
             if not generated_text.endswith('</answer>'):
                 generated_text += '</answer>'
+            print(promp)
+            print(generated_text)
+            print("-"*100)
             responses.append(generated_text)
         
         return _parse_responses(responses, [extract_prediction(r) for r in prompts])  # predictions will be passed separately
@@ -159,7 +162,7 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
         )
         
         responses = []
-        for output in outputs:
+        for output, promp in zip(outputs, prompts):
             if isinstance(output, list) and output:
                 text = output[0]['generated_text']
             elif isinstance(output, dict):
@@ -171,6 +174,9 @@ def call_transformer(prompts: List[str]) -> Tuple[List[int], Set[str]]:
             text = text.strip()
             if not text.endswith('</answer>'):
                 text += '</answer>'
+            print(promp)
+            print(text)
+            print("-"*100)
             responses.append(text)
         
         return _parse_responses(responses, [extract_prediction(r) for r in prompts])  # predictions will be passed separately
