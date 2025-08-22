@@ -53,6 +53,7 @@ python cli.py \
 - `--system`: System to evaluate (required if not using config)
   - `simplellm`: Simple LLM baseline without RAG
   - `simplerag`: Simple RAG system with keyword-based retrieval
+  - `HyDErag`: HyDE RAG system with hypothetical document embeddings
 - `--dataset`: Path to dataset JSON file (required if not using config)
 - `--output`: Output directory for results (default: `results/`)
 - `--alpha`: Conformal prediction error rate (default: `0.1` for 90% coverage)
@@ -89,6 +90,9 @@ python cli.py --config configs/simplellm_example.yaml
 
 # Use comprehensive dataset with RAG
 python cli.py --config configs/simplerag_comprehensive.yaml
+
+# Use HyDE RAG system
+python cli.py --config configs/hyde_example.yaml
 ```
 
 ### Compare Systems
@@ -172,6 +176,7 @@ output: results/my_experiment
 See the `configs/` directory for examples:
 - `configs/simplellm_example.yaml`: Basic LLM evaluation
 - `configs/simplerag_comprehensive.yaml`: RAG system with larger dataset
+- `configs/hyde_example.yaml`: HyDE RAG system with hypothetical document embeddings
 - `configs/comparison.yaml`: Template for comparing systems
 
 ## Metrics Explained
@@ -242,6 +247,40 @@ Simple RAG system with keyword-based retrieval from a built-in knowledge base.
 **Usage:**
 ```bash
 python cli.py --system simplerag --dataset datasets/example.json
+```
+
+### HyDERAG (`HyDErag`)
+
+Advanced RAG system using HyDE (Hypothetical Document Embeddings) technique for improved retrieval.
+
+**Features:**
+- Hypothetical document generation for better semantic retrieval
+- Combines semantic similarity with keyword matching
+- Enhanced context augmentation
+- Fallback to traditional retrieval when needed
+- Built-in comprehensive knowledge base
+
+**Usage:**
+```bash
+python cli.py --system HyDErag --dataset datasets/example.json
+```
+
+**How HyDE Works:**
+1. Generate a hypothetical document that would answer the query
+2. Use the hypothetical document for semantic retrieval instead of the raw query  
+3. Retrieve relevant documents based on semantic similarity
+4. Generate final answer using retrieved context
+
+**Compare HyDE vs SimpleRAG:**
+```bash
+# Test HyDE
+python cli.py --system HyDErag --dataset datasets/example.json --output results/hyde_test
+
+# Test SimpleRAG
+python cli.py --system simplerag --dataset datasets/example.json --output results/simplerag_test
+
+# Compare results
+python compare_performance.py results/hyde_test/evaluation_metrics_*.json results/simplerag_test/evaluation_metrics_*.json results/comparison.json
 ```
 
 ## Adding New Systems
