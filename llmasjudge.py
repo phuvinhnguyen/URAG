@@ -35,31 +35,30 @@ except:
 
 def _get_few_shot_prompt(prediction: str, labels: str, question: str) -> str:
     """Generate evaluation prompt with few-shot examples."""    
-    return f"""Evaluate each answer by checking whether the prediction matches any acceptable label.
+    return f"""Evaluate each answer of LLM based on the question and label by checking whether the answer matches any acceptable label.
 
 Question: What is the capital of France?
-Prediction: The capital of France is Paris
+Answer: The capital of France is Paris
 Label(s): Paris
-Prediction contains "Paris", matching the label.
+Answer contains "Paris", matching the label.
 <answer>Correct</answer>
 
 Question: London is a city or a capital?
-Prediction: London is a city
+Answer: London is a city
 Label(s): London is the capital of England
-Label says "capital"; prediction only says "city", which is wrong.
+Label says "capital"; answer only says "city", which is wrong.
 <answer>Wrong</answer>
 
 Question: What is developed by Einstein?
-Prediction: Einstein developed the theory of relativity
+Answer: Einstein developed the theory of relativity
 Label(s): theory of relativity; relativity theory
-Prediction's phrase "theory of relativity" appears in the labels.
+Answer's phrase "theory of relativity" appears in the labels.
 <answer>Correct</answer>
 
 Now evaluate:
 Question: {question}
-Prediction: {prediction}
-Label(s): {labels}
-"""
+Answer: {prediction}
+Label(s): {labels}"""
 
 def extract_prediction(text: str) -> str:
     text = text.split("\nNow evaluate:")[-1].strip()

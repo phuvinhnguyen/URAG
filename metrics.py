@@ -79,7 +79,7 @@ class ConformalMetrics:
         for option, prob in sorted_probs:
             cumulative_prob += prob
             prediction_set.append(option)
-            if cumulative_prob >= 1 - threshold:
+            if cumulative_prob >= threshold:
                 break
         
         return prediction_set

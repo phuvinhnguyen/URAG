@@ -148,24 +148,12 @@ class ConformalEvaluationPipeline:
         n = len(lac_scores)
         q_level = np.clip(np.ceil((n + 1) * (1 - alpha)) / n, 0, 1)
         
-        lac_threshold = np.quantile(lac_scores, q_level)
-        aps_threshold = np.quantile(aps_scores, q_level)
+        lac_threshold = np.quantile(lac_scores, q_level, method='higher')
+        aps_threshold = np.quantile(aps_scores, q_level, method='higher')
         
         logger.info(f"Calibration thresholds: LAC={lac_threshold:.4f}, APS={aps_threshold:.4f}")
         
         return lac_threshold, aps_threshold
-    
-    def isequal(self, prediction, label):
-        label = label.lower().strip()
-        prediction = prediction.lower().strip()
-
-        if label == prediction: return True
-        elif 'invalid' in prediction and 'invalid' in label: return True
-        elif 'invalid' in prediction and 'invalid' not in label: return False
-        elif 'invalid' not in prediction and 'invalid' in label: return False
-        else:
-            # TODO: implement LLM judge for CRAG
-            return label in prediction
 
     def evaluate_with_conformal_prediction(self, test_results: List[Dict[str, Any]], 
                                          lac_threshold: float, aps_threshold: float) -> Dict[str, Any]:
