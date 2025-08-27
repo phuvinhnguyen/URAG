@@ -10,3 +10,7 @@ litellm==1.75.0
 sentence-transformers>=2.2.0
 scikit-learn>=1.0.0
 orjson>=3.10.0
+qdrant-client>=1.13.0
+markitdown>=0.1.0
+beautifulsoup4>=4.12.2
+html5lib>=1.1
