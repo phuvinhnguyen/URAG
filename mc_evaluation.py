@@ -17,7 +17,7 @@ Data format:
     ...
 ]
 """
-
+import json
 import orjson
 import os
 import numpy as np
@@ -306,8 +306,8 @@ class ConformalEvaluationPipeline:
         with open(test_output, 'wb') as f:
             f.write(orjson.dumps(test_results, option=orjson.OPT_INDENT_2))
         
-        with open(metrics_output, 'wb') as f:
-            f.write(orjson.dumps(final_metrics, option=orjson.OPT_INDENT_2))
+        with open(metrics_output, 'w') as f:
+            json.dump(final_metrics, f, indent=4)
         
         # Log summary
         logger.info("Evaluation Summary:")
