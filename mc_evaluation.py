@@ -228,12 +228,12 @@ class ConformalEvaluationPipeline:
             'accuracy': correct_predictions / total_samples if total_samples > 0 else 0.0,
             'lac_coverage': lac_coverage / total_samples if total_samples > 0 else 0.0,
             'aps_coverage': aps_coverage / total_samples if total_samples > 0 else 0.0,
-            'lac_avg_set_size': np.mean(lac_set_sizes).item() if lac_set_sizes else 0.0,
-            'aps_avg_set_size': np.mean(aps_set_sizes).item() if aps_set_sizes else 0.0,
+            'lac_avg_set_size': float(np.mean(lac_set_sizes)) if lac_set_sizes else 0.0,
+            'aps_avg_set_size': float(np.mean(aps_set_sizes)) if aps_set_sizes else 0.0,
             'lac_set_sizes': lac_set_sizes,
             'aps_set_sizes': aps_set_sizes,
-            'auroc': auroc,
-            'aurac': aurac,
+            'auroc': float(auroc) if auroc is not None else None,
+            'aurac': float(aurac) if aurac is not None else None,
             'thresholds': {
                 'lac_threshold': lac_threshold,
                 'aps_threshold': aps_threshold
