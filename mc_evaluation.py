@@ -17,8 +17,8 @@ Data format:
     ...
 ]
 """
-
 import json
+import orjson
 import os
 import numpy as np
 from datetime import datetime
@@ -109,8 +109,8 @@ class ConformalEvaluationPipeline:
     def load_data(self, file_path: str) -> List[Dict[str, Any]]:
         """Load data from JSON file."""
         logger.info(f"Loading data from {file_path}")
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        with open(file_path, 'rb') as f:
+            data = orjson.loads(f.read())
         return data if isinstance(data, list) else [data]
     
     def compute_calibration_thresholds(self, calibration_results: List[Dict[str, Any]], 
@@ -148,24 +148,12 @@ class ConformalEvaluationPipeline:
         n = len(lac_scores)
         q_level = np.clip(np.ceil((n + 1) * (1 - alpha)) / n, 0, 1)
         
-        lac_threshold = np.quantile(lac_scores, q_level)
-        aps_threshold = np.quantile(aps_scores, q_level)
+        lac_threshold = np.quantile(lac_scores, q_level, method='higher')
+        aps_threshold = np.quantile(aps_scores, q_level, method='higher')
         
         logger.info(f"Calibration thresholds: LAC={lac_threshold:.4f}, APS={aps_threshold:.4f}")
         
         return lac_threshold, aps_threshold
-    
-    def isequal(self, prediction, label):
-        label = label.lower().strip()
-        prediction = prediction.lower().strip()
-
-        if label == prediction: return True
-        elif 'invalid' in prediction and 'invalid' in label: return True
-        elif 'invalid' in prediction and 'invalid' not in label: return False
-        elif 'invalid' not in prediction and 'invalid' in label: return False
-        else:
-            # TODO: implement LLM judge for CRAG
-            return label in prediction
 
     def evaluate_with_conformal_prediction(self, test_results: List[Dict[str, Any]], 
                                          lac_threshold: float, aps_threshold: float) -> Dict[str, Any]:
@@ -240,12 +228,12 @@ class ConformalEvaluationPipeline:
             'accuracy': correct_predictions / total_samples if total_samples > 0 else 0.0,
             'lac_coverage': lac_coverage / total_samples if total_samples > 0 else 0.0,
             'aps_coverage': aps_coverage / total_samples if total_samples > 0 else 0.0,
-            'lac_avg_set_size': np.mean(lac_set_sizes) if lac_set_sizes else 0.0,
-            'aps_avg_set_size': np.mean(aps_set_sizes) if aps_set_sizes else 0.0,
+            'lac_avg_set_size': float(np.mean(lac_set_sizes)) if lac_set_sizes else 0.0,
+            'aps_avg_set_size': float(np.mean(aps_set_sizes)) if aps_set_sizes else 0.0,
             'lac_set_sizes': lac_set_sizes,
             'aps_set_sizes': aps_set_sizes,
-            'auroc': auroc,
-            'aurac': aurac,
+            'auroc': float(auroc) if auroc is not None else None,
+            'aurac': float(aurac) if aurac is not None else None,
             'thresholds': {
                 'lac_threshold': lac_threshold,
                 'aps_threshold': aps_threshold
@@ -311,14 +299,15 @@ class ConformalEvaluationPipeline:
         test_output = os.path.join(output_dir, f"test_results_{timestamp}.json")
         metrics_output = os.path.join(output_dir, f"evaluation_metrics_{timestamp}.json")
         
-        with open(calibration_output, 'w') as f:
-            json.dump(calibration_results, f, indent=2)
+        logger.info("Saving results")
+        with open(calibration_output, 'wb') as f:
+            f.write(orjson.dumps(calibration_results, option=orjson.OPT_INDENT_2))
         
-        with open(test_output, 'w') as f:
-            json.dump(test_results, f, indent=2)
+        with open(test_output, 'wb') as f:
+            f.write(orjson.dumps(test_results, option=orjson.OPT_INDENT_2))
         
         with open(metrics_output, 'w') as f:
-            json.dump(final_metrics, f, indent=2)
+            json.dump(final_metrics, f, indent=4)
         
         # Log summary
         logger.info("Evaluation Summary:")
@@ -545,11 +534,11 @@ if __name__ == "__main__":
     cal_data, test_data = get_example_data()
     
     # Save example data
-    with open("example_calibration.json", "w") as f:
-        json.dump(cal_data, f, indent=2)
+    with open("example_calibration.json", "wb") as f:
+        f.write(orjson.dumps(cal_data, option=orjson.OPT_INDENT_2))
     
-    with open("example_test.json", "w") as f:
-        json.dump(test_data, f, indent=2)
+    with open("example_test.json", "wb") as f:
+        f.write(orjson.dumps(test_data, option=orjson.OPT_INDENT_2))
     
     print("Testing different RAG system implementations...")
     
