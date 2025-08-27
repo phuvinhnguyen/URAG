@@ -18,7 +18,7 @@ Data format:
 ]
 """
 
-import json
+import orjson
 import os
 import numpy as np
 from datetime import datetime
@@ -109,8 +109,8 @@ class ConformalEvaluationPipeline:
     def load_data(self, file_path: str) -> List[Dict[str, Any]]:
         """Load data from JSON file."""
         logger.info(f"Loading data from {file_path}")
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
+        with open(file_path, 'rb') as f:
+            data = orjson.loads(f.read())
         return data if isinstance(data, list) else [data]
     
     def compute_calibration_thresholds(self, calibration_results: List[Dict[str, Any]], 
@@ -299,14 +299,14 @@ class ConformalEvaluationPipeline:
         test_output = os.path.join(output_dir, f"test_results_{timestamp}.json")
         metrics_output = os.path.join(output_dir, f"evaluation_metrics_{timestamp}.json")
         
-        with open(calibration_output, 'w') as f:
-            json.dump(calibration_results, f, indent=2)
+        with open(calibration_output, 'wb') as f:
+            f.write(orjson.dumps(calibration_results, option=orjson.OPT_INDENT_2))
         
-        with open(test_output, 'w') as f:
-            json.dump(test_results, f, indent=2)
+        with open(test_output, 'wb') as f:
+            f.write(orjson.dumps(test_results, option=orjson.OPT_INDENT_2))
         
-        with open(metrics_output, 'w') as f:
-            json.dump(final_metrics, f, indent=2)
+        with open(metrics_output, 'wb') as f:
+            f.write(orjson.dumps(final_metrics, option=orjson.OPT_INDENT_2))
         
         # Log summary
         logger.info("Evaluation Summary:")
@@ -533,11 +533,11 @@ if __name__ == "__main__":
     cal_data, test_data = get_example_data()
     
     # Save example data
-    with open("example_calibration.json", "w") as f:
-        json.dump(cal_data, f, indent=2)
+    with open("example_calibration.json", "wb") as f:
+        f.write(orjson.dumps(cal_data, option=orjson.OPT_INDENT_2))
     
-    with open("example_test.json", "w") as f:
-        json.dump(test_data, f, indent=2)
+    with open("example_test.json", "wb") as f:
+        f.write(orjson.dumps(test_data, option=orjson.OPT_INDENT_2))
     
     print("Testing different RAG system implementations...")
     
