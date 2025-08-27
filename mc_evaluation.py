@@ -228,8 +228,8 @@ class ConformalEvaluationPipeline:
             'accuracy': correct_predictions / total_samples if total_samples > 0 else 0.0,
             'lac_coverage': lac_coverage / total_samples if total_samples > 0 else 0.0,
             'aps_coverage': aps_coverage / total_samples if total_samples > 0 else 0.0,
-            'lac_avg_set_size': np.mean(lac_set_sizes) if lac_set_sizes else 0.0,
-            'aps_avg_set_size': np.mean(aps_set_sizes) if aps_set_sizes else 0.0,
+            'lac_avg_set_size': np.mean(lac_set_sizes).item() if lac_set_sizes else 0.0,
+            'aps_avg_set_size': np.mean(aps_set_sizes).item() if aps_set_sizes else 0.0,
             'lac_set_sizes': lac_set_sizes,
             'aps_set_sizes': aps_set_sizes,
             'auroc': auroc,
@@ -299,6 +299,7 @@ class ConformalEvaluationPipeline:
         test_output = os.path.join(output_dir, f"test_results_{timestamp}.json")
         metrics_output = os.path.join(output_dir, f"evaluation_metrics_{timestamp}.json")
         
+        logger.info("Saving results")
         with open(calibration_output, 'wb') as f:
             f.write(orjson.dumps(calibration_results, option=orjson.OPT_INDENT_2))
         
