@@ -64,7 +64,7 @@ class SimpleRAGSystem(AbstractRAGSystem):
         
         database = QdrantVectorDB(
             texts=documents,
-            embedding_model="sentence_transformers/all-MiniLM-L6-v2",
+            embedding_model="sentence_transformers",
             chunk_size=300,
             overlap=150
         )
