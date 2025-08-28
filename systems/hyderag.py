@@ -3,9 +3,9 @@ from systems.hydellm import HyDELLMSystem
 from typing import Dict, Any, List
 from loguru import logger
 import re
-from utils.vectordb import QdrantVectorDB
-from utils.clean import clean_web_content
-from utils.get_html import get_web_content
+from utils.vectordb import QdrantVectorDB  # pyright: ignore[reportMissingImports]
+from utils.clean import clean_web_content  # pyright: ignore[reportMissingImports]
+from utils.get_html import get_web_content  # pyright: ignore[reportMissingImports]
 
 
 class HyDERAGSystem(AbstractRAGSystem):
@@ -68,7 +68,7 @@ class HyDERAGSystem(AbstractRAGSystem):
         return 1
     
     def _extract_existing_documents(self, sample: Dict[str, Any]) -> List[str]:
-        """Extract documents from search_results field if available."""
+        """Extract and process documents from search_results field following SimpleRAG approach."""
         search_results = sample.get('search_results', [])
         documents = []
         
@@ -76,23 +76,45 @@ class HyDERAGSystem(AbstractRAGSystem):
             # CRAG format: array of document objects
             for doc in search_results:
                 if isinstance(doc, dict):
-                    # Try different possible content fields
-                    content = (doc.get('content', '') or 
-                             doc.get('text', '') or 
-                             doc.get('page_content', '') or
-                             doc.get('snippet', '') or
-                             doc.get('body', ''))
-                    
-                    # If no content field, concatenate page_name and available text
-                    if not content:
-                        page_name = doc.get('page_name', '')
-                        title = doc.get('title', '')
-                        summary = doc.get('summary', '')
-                        if page_name or title or summary:
-                            content = f"{title or page_name}\n{summary}".strip()
-                    
-                    if content:
-                        documents.append(content)
+                    if doc.get('page_result'):
+                        # Use full HTML content + snippet
+                        snippet = doc.get('page_snippet', '')
+                        full_content = snippet + "\n\n" + clean_web_content(doc['page_result'])
+                        documents.append(full_content)
+                        logger.debug(f"Using page_result + snippet (length: {len(full_content)})")
+                    elif doc.get('page_url'):
+                        # Fallback: fetch from URL + snippet  
+                        snippet = doc.get('page_snippet', '')
+                        fetched_content = get_web_content(doc['page_url'])
+                        if fetched_content:
+                            full_content = snippet + "\n\n" + clean_web_content(fetched_content)
+                            documents.append(full_content)
+                            logger.debug(f"Fetched content from page_url + snippet (length: {len(full_content)})")
+                        else:
+                            # Final fallback: just snippet
+                            if snippet:
+                                documents.append(snippet)
+                                logger.debug(f"Using snippet only as fallback (length: {len(snippet)})")
+                    else:
+                        # Legacy support for other content fields
+                        content = (doc.get('content', '') or 
+                                 doc.get('text', '') or 
+                                 doc.get('page_content', '') or
+                                 doc.get('snippet', '') or
+                                 doc.get('page_snippet', '') or
+                                 doc.get('body', ''))
+                        
+                        # If no content field, concatenate page_name and available text
+                        if not content:
+                            page_name = doc.get('page_name', '')
+                            title = doc.get('title', '')
+                            summary = doc.get('summary', '')
+                            if page_name or title or summary:
+                                content = f"{title or page_name}\n{summary}".strip()
+                        
+                        if content:
+                            documents.append(content)
+                            logger.debug(f"Using legacy content field (length: {len(content)})")
                 elif isinstance(doc, str):
                     # Simple string format
                     documents.append(doc)
@@ -100,7 +122,7 @@ class HyDERAGSystem(AbstractRAGSystem):
             # Simple string format
             documents.append(search_results)
         
-        logger.debug(f"Extracted {len(documents)} existing documents from search_results")
+        logger.debug(f"Extracted {len(documents)} processed documents from search_results")
         return documents
 
     def _extract_keywords(self, text: str) -> List[str]:
