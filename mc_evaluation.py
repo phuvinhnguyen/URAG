@@ -293,18 +293,18 @@ class ConformalEvaluationPipeline:
         )
         
         # Save detailed results
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        calibration_output = os.path.join(output_dir, f"calibration_results_{timestamp}.json")
-        test_output = os.path.join(output_dir, f"test_results_{timestamp}.json")
-        metrics_output = os.path.join(output_dir, f"evaluation_metrics_{timestamp}.json")
+        calibration_output = os.path.join(output_dir, f"calibration_results.json")
+        test_output = os.path.join(output_dir, f"test_results.json")
+        metrics_output = os.path.join(output_dir, f"evaluation_metrics.json")
         
         logger.info("Saving results")
-        with open(calibration_output, 'wb') as f:
-            f.write(orjson.dumps(calibration_results, option=orjson.OPT_INDENT_2))
+        with open(calibration_output, 'w') as f:
+            json.dump(calibration_results, f, indent=4)
         
-        with open(test_output, 'wb') as f:
-            f.write(orjson.dumps(test_results, option=orjson.OPT_INDENT_2))
+        with open(test_output, 'w') as f:
+            json.dump(test_results, f, indent=4)
         
         with open(metrics_output, 'w') as f:
             json.dump(final_metrics, f, indent=4)
