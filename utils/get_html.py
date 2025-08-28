@@ -24,7 +24,7 @@ def get_web_content(url, timeout=10):
     
     except RequestException as e:
         print(f"Error fetching {url}: {e}")
-        return None
+        return ''
 
 if __name__ == "__main__":
     # Usage

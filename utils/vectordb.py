@@ -15,7 +15,7 @@ from pathlib import Path
 
 try:
     from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+    from qdrant_client.models import Distance, VectorParams, PointStruct
     from qdrant_client.http import models
     QDRANT_AVAILABLE = True
 except ImportError:
@@ -120,7 +120,18 @@ class QdrantVectorDB:
         if not QDRANT_AVAILABLE:
             raise ImportError("qdrant-client is required. Install with: pip install qdrant-client")
         
+        # Store the user-provided embedding model string. This can be a type or a concrete model name
         self.embedding_model = embedding_model
+        # Determine embedding model type and, if applicable, the sentence-transformers model name
+        known_types = {"tfidf", "openai", "sentence_transformers"}
+        if embedding_model in known_types:
+            self.embedding_model_type = embedding_model
+            # Default model name for sentence-transformers when type is specified
+            self.sentence_transformer_model_name = 'all-MiniLM-L6-v2' if embedding_model == "sentence_transformers" else None
+        else:
+            # If a specific model name is provided (e.g., 'all-MiniLM-L6-v2'), use sentence-transformers automatically
+            self.embedding_model_type = "sentence_transformers"
+            self.sentence_transformer_model_name = embedding_model
         self.current_db_index = 0
         self.db_names = []
         self.collections = {}  # Maps db_index to collection_name
@@ -253,17 +264,6 @@ class QdrantVectorDB:
             self.tfidf_vectorizers[db_index] = vectorizer
             return embeddings, embeddings.shape[1]
         
-        elif model == "sentence_transformers":
-            try:
-                from sentence_transformers import SentenceTransformer
-                model_obj = SentenceTransformer('all-MiniLM-L6-v2')
-                embeddings = model_obj.encode(chunks, show_progress_bar=True)
-                self.sentence_transformers[db_index] = model_obj
-                return embeddings, embeddings.shape[1]
-            except ImportError:
-                print("sentence-transformers not installed. Falling back to TF-IDF")
-                return self._create_embeddings(chunks, "tfidf", db_index)
-        
         elif model == "openai":
             try:
                 import openai
@@ -273,6 +273,19 @@ class QdrantVectorDB:
                 print("OpenAI package not installed. Falling back to TF-IDF")
                 return self._create_embeddings(chunks, "tfidf", db_index)
         
+        elif model == "sentence_transformers":
+            try:
+                from sentence_transformers import SentenceTransformer
+                # Use provided model name if available, else fall back to default
+                model_name = getattr(self, 'sentence_transformer_model_name', 'all-MiniLM-L6-v2')
+                model_obj = SentenceTransformer(model_name)
+                embeddings = model_obj.encode(chunks, show_progress_bar=True)
+                self.sentence_transformers[db_index] = model_obj
+                return embeddings, embeddings.shape[1]
+            except ImportError:
+                print("sentence-transformers not installed. Falling back to TF-IDF")
+                return self._create_embeddings(chunks, "tfidf", db_index)
+            
         else:
             raise ValueError(f"Unknown embedding model: {model}")
     
@@ -299,7 +312,8 @@ class QdrantVectorDB:
                 })
         
         # Create embeddings
-        embeddings, vector_size = self._create_embeddings(all_chunks, config.embedding_model, db_index)
+        # Use resolved embedding model type for creating embeddings
+        embeddings, vector_size = self._create_embeddings(all_chunks, self.embedding_model_type, db_index)
         
         # Create Qdrant collection
         self.client.create_collection(
@@ -408,16 +422,16 @@ class QdrantVectorDB:
         collection_name = self.collections[db_index]
         
         # Create query embedding
-        if self.embedding_model == "tfidf":
+        if self.embedding_model_type == "tfidf":
             if db_index not in self.tfidf_vectorizers:
                 raise ValueError(f"TF-IDF vectorizer not found for database {db_index}")
             query_vec = self.tfidf_vectorizers[db_index].transform([query]).toarray()[0]
-        elif self.embedding_model == "sentence_transformers":
+        elif self.embedding_model_type == "sentence_transformers":
             if db_index not in self.sentence_transformers:
                 raise ValueError(f"Sentence transformer not found for database {db_index}")
             query_vec = self.sentence_transformers[db_index].encode([query])[0]
         else:
-            raise ValueError(f"Unsupported embedding model: {self.embedding_model}")
+            raise ValueError(f"Unsupported embedding model type: {self.embedding_model_type}")
         
         # Search in Qdrant
         search_results = self.client.search(
@@ -585,6 +599,7 @@ class QdrantVectorDB:
         # Create save data (configuration only)
         save_data = {
             'embedding_model': self.embedding_model,
+            'embedding_model_type': getattr(self, 'embedding_model_type', None),
             'current_db_index': self.current_db_index,
             'db_names': self.db_names,
             'collections': self.collections,
@@ -605,7 +620,8 @@ class QdrantVectorDB:
             tfidf_models[db_idx] = model_path
         
         save_data['tfidf_models'] = tfidf_models
-        save_data['sentence_transformer_model'] = 'all-MiniLM-L6-v2'  # Standard model name
+        # Persist the sentence-transformers model name actually used
+        save_data['sentence_transformer_model'] = getattr(self, 'sentence_transformer_model_name', 'all-MiniLM-L6-v2')
         
         # Save configuration
         with open(filepath, 'w') as f:
@@ -650,6 +666,7 @@ class QdrantVectorDB:
         # Create new instance
         instance = cls.__new__(cls)
         instance.embedding_model = save_data['embedding_model']
+        instance.embedding_model_type = save_data.get('embedding_model_type', 'tfidf' if save_data['embedding_model'] == 'tfidf' else 'sentence_transformers')
         instance.current_db_index = save_data['current_db_index']
         instance.db_names = save_data['db_names']
         instance.collections = {int(k): v for k, v in save_data['collections'].items()}
@@ -669,10 +686,11 @@ class QdrantVectorDB:
         
         # Load sentence transformers
         instance.sentence_transformers = {}
-        if instance.embedding_model == "sentence_transformers":
+        if instance.embedding_model_type == "sentence_transformers":
             try:
                 from sentence_transformers import SentenceTransformer
                 model_name = save_data.get('sentence_transformer_model', 'all-MiniLM-L6-v2')
+                instance.sentence_transformer_model_name = model_name
                 for db_idx in instance.collections.keys():
                     instance.sentence_transformers[db_idx] = SentenceTransformer(model_name)
                 print(f"Recreated SentenceTransformer models: {model_name}")
