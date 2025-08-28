@@ -70,6 +70,13 @@ class SimpleRAGSystem(AbstractRAGSystem):
         )
                 
         retrieved_docs = database.search(question, method="hybrid", k=3)
+
+        # clean and remove database from memory to save RAM as much as possible
+        try:
+            database.client.delete_collection(database.collections[0])
+        except Exception as e:
+            logger.error(f"Error deleting collection: {e}")
+        del database
         
         # Augment sample with retrieved context
         augmented_sample = sample.copy()
