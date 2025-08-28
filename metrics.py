@@ -1,4 +1,5 @@
 from typing import Dict, List
+from llmasjudge import correct_prediction
 
 class ConformalMetrics:
     """Class for computing conformal prediction metrics."""
@@ -16,7 +17,12 @@ class ConformalMetrics:
         Returns:
             LAC score (lower is better)
         """
-        return 1.0 - probabilities.get(correct_answer, 0.0)
+        correct, _ = correct_prediction(list(probabilities.keys()), correct_answer)
+        max_prob = 0.0
+        for cor, prob in zip(correct, list(probabilities.values())):
+            if cor == 1 and max_prob < prob:
+                max_prob = prob
+        return 1.0 - max_prob
     
     @staticmethod
     def compute_aps_score(probabilities: Dict[str, float], correct_answer: str) -> float:
@@ -34,11 +40,11 @@ class ConformalMetrics:
         """
         # Sort probabilities in descending order
         sorted_probs = sorted(probabilities.items(), key=lambda x: x[1], reverse=True)
-        
+        correct, _ = correct_prediction([i[0] for i in sorted_probs], correct_answer)
         cumulative_prob = 0.0
-        for option, prob in sorted_probs:
+        for (option, prob), cor in zip(sorted_probs, correct):
             cumulative_prob += prob
-            if option == correct_answer:
+            if cor == 1:
                 return cumulative_prob
         
         # If correct answer not found, return 1.0 (worst case)
@@ -79,7 +85,7 @@ class ConformalMetrics:
         for option, prob in sorted_probs:
             cumulative_prob += prob
             prediction_set.append(option)
-            if cumulative_prob >= 1 - threshold:
+            if cumulative_prob >= threshold:
                 break
         
         return prediction_set

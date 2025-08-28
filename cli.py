@@ -8,7 +8,7 @@ Usage:
 """
 
 import argparse
-import json
+import orjson
 import os
 import sys
 import yaml
@@ -25,8 +25,8 @@ def load_dataset(dataset_path: str) -> Dict[str, Any]:
     if not os.path.exists(dataset_path):
         raise FileNotFoundError(f"Dataset not found: {dataset_path}")
     
-    with open(dataset_path, 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    with open(dataset_path, 'rb') as f:
+        data = orjson.loads(f.read())
     
     # Validate dataset format
     if not isinstance(data, dict):
@@ -60,11 +60,11 @@ def save_temp_files(data: Dict[str, Any], output_dir: str) -> tuple[str, str]:
     cal_path = os.path.join(output_dir, "temp_calibration.json")
     test_path = os.path.join(output_dir, "temp_test.json")
     
-    with open(cal_path, 'w', encoding='utf-8') as f:
-        json.dump(data['calibration'], f, indent=2)
+    with open(cal_path, 'wb') as f:
+        f.write(orjson.dumps(data['calibration'], option=orjson.OPT_INDENT_2))
     
-    with open(test_path, 'w', encoding='utf-8') as f:
-        json.dump(data['test'], f, indent=2)
+    with open(test_path, 'wb') as f:
+        f.write(orjson.dumps(data['test'], option=orjson.OPT_INDENT_2))
     
     return cal_path, test_path
 
