@@ -2,6 +2,9 @@ from systems.abstract import AbstractRAGSystem
 from systems.simplellm import SimpleLLMSystem
 from typing import Dict, Any, List
 from loguru import logger
+from utils.clean import clean_web_content
+from utils.vectordb import QdrantVectorDB
+from utils.get_html import get_web_content
 
 
 class SimpleRAGSystem(AbstractRAGSystem):
@@ -15,44 +18,6 @@ class SimpleRAGSystem(AbstractRAGSystem):
         """Initialize the RAG system with an LLM and simple retrieval."""
         # Initialize the LLM component
         self.llm_system = SimpleLLMSystem(model_name, device)
-        
-        # Simple knowledge base (in practice, this would be a vector database)
-        self.knowledge_base = {
-            "france": "France is a country in Europe. Its capital is Paris, which is known for landmarks like the Eiffel Tower.",
-            "capital": "A capital city is the primary city of a country or region, usually where the government is located.",
-            "python": "Python is a popular programming language widely used in data science, web development, and automation.",
-            "programming": "Programming languages are formal languages used to communicate instructions to computers.",
-            "data science": "Data science combines statistics, programming, and domain expertise to extract insights from data.",
-            "jupiter": "Jupiter is the largest planet in our solar system, a gas giant with over 70 moons.",
-            "planet": "Planets are celestial bodies that orbit stars and have cleared their orbital neighborhood.",
-            "solar system": "Our solar system contains the Sun and eight planets, along with moons, asteroids, and comets.",
-            "shakespeare": "William Shakespeare was an English playwright and poet, considered one of the greatest writers in the English language.",
-            "literature": "Literature encompasses written works, especially those considered to have artistic or intellectual value.",
-            "pride and prejudice": "Pride and Prejudice is a novel by Jane Austen, published in 1813, exploring themes of love and social class.",
-            "gold": "Gold is a precious metal with the chemical symbol Au, valued for its rarity and resistance to corrosion.",
-            "chemical": "Chemical elements are pure substances consisting of atoms with the same number of protons.",
-            "world war": "World War II was a global conflict from 1939 to 1945, ending with the defeat of the Axis powers.",
-            "war": "Major wars have shaped world history, involving conflicts between nations or groups.",
-            "mathematics": "Mathematics is the science of numbers, quantities, and shapes, fundamental to many fields.",
-            "math": "Mathematical operations include addition, subtraction, multiplication, and division.",
-            "brazil": "Brazil is the largest country in South America, with Portuguese as its official language.",
-            "south america": "South America is a continent containing countries like Brazil, Argentina, and Colombia.",
-            "html": "HTML (Hypertext Markup Language) is the standard markup language for creating web pages.",
-            "web": "Web technologies enable the creation and display of content on the World Wide Web.",
-            "nitrogen": "Nitrogen makes up about 78% of Earth's atmosphere and is essential for life.",
-            "atmosphere": "Earth's atmosphere is composed primarily of nitrogen and oxygen, protecting life on the planet.",
-            "atom": "Atoms are the basic building blocks of matter, consisting of protons, neutrons, and electrons.",
-            "matter": "Matter is anything that has mass and takes up space, existing in various states.",
-            "portuguese": "Portuguese is a Romance language spoken by over 250 million people worldwide.",
-            "language": "Languages are systems of communication used by humans to express thoughts and ideas.",
-            "mona lisa": "The Mona Lisa is a famous painting by Leonardo da Vinci, housed in the Louvre Museum.",
-            "leonardo": "Leonardo da Vinci was an Italian Renaissance artist, inventor, and scientist.",
-            "art": "Art encompasses various forms of creative expression, including painting, sculpture, and music.",
-            "cpu": "The CPU (Central Processing Unit) is the primary component of a computer that executes instructions.",
-            "computer": "Computers are electronic devices that process data according to programmed instructions."
-        }
-        
-        logger.info(f"Initialized SimpleRAG with {len(self.knowledge_base)} knowledge entries")
     
     def get_batch_size(self) -> int:
         """Return batch size."""
@@ -93,13 +58,24 @@ class SimpleRAGSystem(AbstractRAGSystem):
         """Process sample with RAG enhancement."""
         # Retrieve relevant context
         question = sample.get('question', '')
-        retrieved_docs = self._retrieve_context(question)
+        documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
+                     doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
+                     for doc in sample.get('search_results', [])]
+        
+        database = QdrantVectorDB(
+            texts=documents,
+            embedding_model="sentence_transformers/all-MiniLM-L6-v2",
+            chunk_size=300,
+            overlap=150
+        )
+                
+        retrieved_docs = database.search(question, method="hybrid", k=3)
         
         # Augment sample with retrieved context
         augmented_sample = sample.copy()
         if retrieved_docs:
             # Combine retrieved documents
-            retrieved_context = "\n".join(retrieved_docs)
+            retrieved_context = "\n".join([i['chunk'] for i in retrieved_docs])
             
             # Add to existing context if any
             existing_context = sample.get('search_results', sample.get('context', ''))
