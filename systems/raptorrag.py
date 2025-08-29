@@ -6,21 +6,33 @@ from pathlib import Path
 import sys
 import os
 
-# Add RAPTOR to the system path
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'raptor'))
+# Ensure project root is on sys.path so nested packages resolve
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
 
-# Import RAPTOR components directly
 try:
-    from raptor.cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
-    from raptor.tree_retriever import TreeRetriever, TreeRetrieverConfig
-    from raptor.EmbeddingModels import SBertEmbeddingModel
-    from raptor.SummarizationModels import GPT3TurboSummarizationModel
-    from raptor.tree_structures import Tree, Node
+    # Try nested package layout first: repo_root/raptor/raptor/*.py
+    from raptor.raptor.cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
+    from raptor.raptor.tree_retriever import TreeRetriever, TreeRetrieverConfig
+    from raptor.raptor.EmbeddingModels import SBertEmbeddingModel
+    from raptor.raptor.SummarizationModels import GPT3TurboSummarizationModel
+    from raptor.raptor.tree_structures import Tree, Node
     RAPTOR_AVAILABLE = True
-    logger.info("RAPTOR components loaded successfully")
-except ImportError as e:
-    logger.warning(f"RAPTOR components not available: {e}")
-    RAPTOR_AVAILABLE = False
+    logger.info("RAPTOR components loaded successfully (raptor.raptor.*)")
+except ImportError:
+    try:
+        # Fallback to flat layout: raptor/*.py
+        from raptor.cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
+        from raptor.tree_retriever import TreeRetriever, TreeRetrieverConfig
+        from raptor.EmbeddingModels import SBertEmbeddingModel
+        from raptor.SummarizationModels import GPT3TurboSummarizationModel
+        from raptor.tree_structures import Tree, Node
+        RAPTOR_AVAILABLE = True
+        logger.info("RAPTOR components loaded successfully (raptor.*)")
+    except ImportError as e:
+        logger.warning(f"RAPTOR components not available: {e}")
+        RAPTOR_AVAILABLE = False
 
 
 class RaptorRAGSystem(AbstractRAGSystem):
@@ -32,7 +44,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
     """
 
     def __init__(self,
-                 model_name: str = "microsoft/DialoGPT-medium",
+                 model_name: str = "Qwen/Qwen3-0.6B",
                  device: str = "auto",
                  num_samples: int = 20,
                  tree_save_path: str = "raptor_tree",
@@ -147,13 +159,15 @@ class RaptorRAGSystem(AbstractRAGSystem):
             self.tree = self.tree_builder.build_from_text(combined_text)
             
             # Configure and initialize the retriever
+            # Cap retriever layers to satisfy: retriever.num_layers <= tree.num_layers + 1
+            retriever_layers = min(self.num_layers, self.tree.num_layers + 1)
             retriever_config = TreeRetrieverConfig(
                 threshold=self.threshold,
                 top_k=self.top_k,
                 selection_mode="top_k",
                 context_embedding_model="SBert",
                 embedding_model=SBertEmbeddingModel(),
-                num_layers=self.num_layers
+                num_layers=retriever_layers
             )
             
             self.tree_retriever = TreeRetriever(retriever_config, self.tree)
@@ -191,13 +205,14 @@ class RaptorRAGSystem(AbstractRAGSystem):
                     self.tree = pickle.load(f)
                     
                 # Reinitialize retriever with loaded tree
+                retriever_layers = min(self.num_layers, self.tree.num_layers + 1)
                 retriever_config = TreeRetrieverConfig(
                     threshold=self.threshold,
                     top_k=self.top_k,
                     selection_mode="top_k",
                     context_embedding_model="SBert",
                     embedding_model=SBertEmbeddingModel(),
-                    num_layers=self.num_layers
+                    num_layers=retriever_layers
                 )
                 self.tree_retriever = TreeRetriever(retriever_config, self.tree)
                 
