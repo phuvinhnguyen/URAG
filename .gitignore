@@ -5,3 +5,6 @@ mock_api/cragkg
 venv/
 raptor/
 graphrag/
+
+*.ipynb
+__pycache__/
