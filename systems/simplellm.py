@@ -15,7 +15,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
     This serves as a baseline and example implementation.
     """
     
-    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto", num_samples: int = 20):
+    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto", num_samples: int = 20, technique: str = "direct"):
         """Initialize the LLM system."""
         if device == "auto":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -23,7 +23,8 @@ class SimpleLLMSystem(AbstractRAGSystem):
             self.device = torch.device(device)
             
         self.num_samples = num_samples  # Số lần chạy model khi options rỗng
-            
+        self.technique = technique
+
         logger.info(f"Loading model {model_name} on {self.device}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
@@ -41,7 +42,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         """Generate prompt based on sample technique."""
         question = sample.get('question', '')
-        technique = sample.get('technique', 'direct')
+        technique = self.technique
         
         if technique == 'cot':
             return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your answer."
@@ -123,60 +124,23 @@ class SimpleLLMSystem(AbstractRAGSystem):
     
     def _compute_option_probabilities(self, response: str, options: List[str]) -> Dict[str, float]:
         """Compute softmax probabilities for each option."""
-        start_pos, end_pos = self._find_answer_positions(response)
+        start_pos, end_pos = self._find_answer_positions(response + '<answer>A</answer>')
         
         if start_pos == -1:
             # If no answer format found, return uniform distribution
             uniform_prob = 1.0 / len(options)
             return {option: uniform_prob for option in options}
         
-        probabilities = {}
-        logits = []
+        inputs = self.tokenizer.encode(response[:start_pos], return_tensors="pt", truncation=True, max_length=512).to(self.device)
         
-        for option in options:
-            # Replace the answer with current option
-            modified_response = response[:start_pos] + option + response[end_pos:]
-            
-            # Tokenize and get logits for this modified response
-            inputs = self.tokenizer.encode(modified_response, return_tensors="pt", truncation=True, max_length=512)
-            inputs = inputs.to(self.device)
-            
-            with torch.no_grad():
-                outputs = self.model(inputs)
-                # Get the logit for the option token
-                option_tokens = self.tokenizer.encode(option, add_special_tokens=False)
-                if not option_tokens:
-                    logits.append(-float('inf'))
-                    continue
-                    
-                option_token_id = option_tokens[0]
-                
-                # Find position of the option in the sequence
-                option_pos = -1
-                input_ids = inputs[0].cpu().numpy()
-                
-                for i in range(len(input_ids) - len(option_tokens) + 1):
-                    if np.array_equal(input_ids[i:i+len(option_tokens)], option_tokens):
-                        option_pos = i
-                        break
-                
-                if option_pos > 0:
-                    # Get logit at the position before the option token
-                    logit = outputs.logits[0, option_pos-1, option_token_id].item()
-                else:
-                    # Fallback: use average logit
-                    logit = outputs.logits[0, -1, option_token_id].item()
-                
-                logits.append(logit)
-        
-        # Apply softmax to convert logits to probabilities
-        logits_tensor = torch.tensor(logits)
-        probs_tensor = F.softmax(logits_tensor, dim=0)
-        
-        for i, option in enumerate(options):
-            probabilities[option] = probs_tensor[i].item()
-        
-        return probabilities
+        with torch.no_grad():
+            logits = self.model(inputs).logits[0, -1, :]
+
+        option_tokens = [self.tokenizer.encode(option, add_special_tokens=False)[0] for option in options]
+
+        logits = F.softmax(logits[option_tokens], dim=0)
+
+        return {option: logits[i].item() for i, option in enumerate(options)}
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single sample through the LLM system."""
@@ -212,7 +176,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
                 'option_probabilities': option_probabilities,
                 'num_samples_generated': len(answers),
                 'prompt_used': prompt,
-                'technique': sample.get('technique', 'direct'),
+                'technique': self.technique,
                 'method': 'frequency_based'
             }
         else:
@@ -226,7 +190,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
             option_probabilities = self._compute_option_probabilities(response, options)
             
             # Extract the predicted answer
-            predicted_answer = self._extract_answer(response)
+            predicted_answer = max(option_probabilities.items(), key=lambda x: x[1])[0]
             
             return {
                 'id': sample.get('id', 'unknown'),
