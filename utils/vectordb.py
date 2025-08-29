@@ -15,7 +15,7 @@ from pathlib import Path
 
 try:
     from qdrant_client import QdrantClient
-    from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
+    from qdrant_client.models import Distance, VectorParams, PointStruct
     from qdrant_client.http import models
     QDRANT_AVAILABLE = True
 except ImportError:
