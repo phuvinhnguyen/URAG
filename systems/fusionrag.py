@@ -19,7 +19,7 @@ class FusionRAGSystem(AbstractRAGSystem):
     4. Generate final answer using the top-ranked fused documents
     """
     
-    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto", num_queries: int = 3, k: int = 60, **kwargs):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_queries: int = 3, k: int = 60, **kwargs):
         """Initialize the Fusion RAG system with an LLM and enhanced retrieval."""
         # Initialize the Fusion LLM component
         self.llm_system = FusionLLMSystem(model_name, device, num_queries=num_queries)
@@ -272,6 +272,7 @@ class FusionRAGSystem(AbstractRAGSystem):
         
         # Step 4: Augment sample with retrieved context
         augmented_sample = sample.copy()
+        augmented_sample['diverse_queries'] = diverse_queries 
         if retrieved_docs:
             # Combine retrieved documents
             retrieved_context = "\n\n".join(retrieved_docs)

@@ -18,7 +18,7 @@ class FusionLLMSystem(AbstractRAGSystem):
     3. Apply Reciprocal Rank Fusion to combine results
     """
     
-    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto", num_samples: int = 20, num_queries: int = 3):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, num_queries: int = 3):
         """Initialize the Fusion LLM system."""
         if device == "auto":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -77,18 +77,27 @@ class FusionLLMSystem(AbstractRAGSystem):
         question = sample.get('question', '')
         technique = sample.get('technique', 'direct')
         
+        # Build options text if available
+        options_text = ""
+        if 'options' in sample and 'option_texts' in sample:
+            options_text = "\n\nOptions:\n"
+            for option in sample['options']:
+                text = sample['option_texts'].get(option, option)
+                options_text += f"{option}. {text}\n"
+            options_text += "\nPlease choose one of the options A, B, C, or D."
+        
         if technique == 'cot':
-            return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your answer."
+            return f"Let's think step by step.\n\n{question}{options_text}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
         elif technique == 'rag' or technique == 'fusion':
             # For Fusion, use context if available
             context = sample.get('search_results', sample.get('context', ''))
             if context:
-                return f"Context information: {context}\n\nQuestion: {question}\n\nPlease provide your final answer in the format <answer>X</answer>."
+                return f"Context information: {context}\n\nQuestion: {question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
             else:
-                return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
+                return f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
         else:
             # Direct prompting
-            return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
+            return f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
     
     def _generate_response(self, prompt: str, max_length: int = 200, temperature: float = 0.7) -> str:
         """Generate response from the LLM."""
@@ -205,8 +214,10 @@ class FusionLLMSystem(AbstractRAGSystem):
         """Process a single sample through the Fusion LLM system."""
         # Generate diverse queries for the question
         question = sample.get('question', '')
-        diverse_queries = self.generate_diverse_queries(question)
-        
+        diverse_queries = sample.get('diverse_queries', [])
+        if not diverse_queries:
+            # Fallback: tạo mới nếu không có
+            diverse_queries = self.generate_diverse_queries(sample.get('question', ''))
         # Generate prompt
         prompt = self._generate_prompt(sample)
         

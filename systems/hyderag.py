@@ -21,7 +21,7 @@ class HyDERAGSystem(AbstractRAGSystem):
     4. Generate final answer using retrieved context
     """
     
-    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto", **kwargs):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", **kwargs):
         """Initialize the HyDE RAG system with an LLM and enhanced retrieval."""
         # Initialize the HyDE LLM component
         self.llm_system = HyDELLMSystem(model_name, device)
@@ -312,6 +312,9 @@ class HyDERAGSystem(AbstractRAGSystem):
         else:
             logger.debug(f"No relevant documents found for HyDE retrieval from {source_type}")
             augmented_sample['technique'] = 'hyde'
+        
+        # Pass the hypothetical document to avoid regenerating it in HyDELLMSystem
+        augmented_sample['hypothetical_document'] = hypothetical_doc
         
         # Step 5: Process through HyDE LLM system
         result = self.llm_system.process_sample(augmented_sample)

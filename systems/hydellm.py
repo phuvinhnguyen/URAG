@@ -16,7 +16,7 @@ class HyDELLMSystem(AbstractRAGSystem):
     then uses that document for retrieval instead of the original query.
     """
     
-    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto", num_samples: int = 20):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20):
         """Initialize the HyDE LLM system."""
         if device == "auto":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -70,18 +70,27 @@ Answer: """
         question = sample.get('question', '')
         technique = sample.get('technique', 'direct')
         
+        # Build options text if available
+        options_text = ""
+        if 'options' in sample and 'option_texts' in sample:
+            options_text = "\n\nOptions:\n"
+            for option in sample['options']:
+                text = sample['option_texts'].get(option, option)
+                options_text += f"{option}. {text}\n"
+            options_text += "\nPlease choose one of the options A, B, C, or D."
+        
         if technique == 'cot':
-            return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your answer."
+            return f"Let's think step by step.\n\n{question}{options_text}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
         elif technique == 'rag' or technique == 'hyde':
             # For HyDE, use context if available
             context = sample.get('search_results', sample.get('context', ''))
             if context:
-                return f"Context information: {context}\n\nQuestion: {question}\n\nPlease provide your final answer in the format <answer>X</answer>."
+                return f"Context information: {context}\n\nQuestion: {question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
             else:
-                return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
+                return f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
         else:
             # Direct prompting
-            return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
+            return f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
     
     def _generate_response(self, prompt: str, max_length: int = 200, temperature: float = 0.7) -> str:
         """Generate response from the LLM."""
@@ -195,9 +204,16 @@ Answer: """
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single sample through the HyDE LLM system."""
-        # Generate hypothetical document for the question
+        # Check if hypothetical document is already provided (from HyDERAGSystem)
         question = sample.get('question', '')
-        hypothetical_doc = self.generate_hypothetical_document(question)
+        hypothetical_doc = sample.get('hypothetical_document', '')
+        
+        # Only generate hypothetical document if not provided (standalone mode)
+        if not hypothetical_doc:
+            hypothetical_doc = self.generate_hypothetical_document(question)
+            logger.info("Generated hypothetical document in standalone mode")
+        else:
+            logger.info("Using provided hypothetical document from HyDERAGSystem")
         
         # Generate prompt
         prompt = self._generate_prompt(sample)
@@ -229,7 +245,8 @@ Answer: """
                 'technique': sample.get('technique', 'hyde'),
                 'method': 'frequency_based',
                 'hypothetical_document': hypothetical_doc,
-                'system_type': 'hyde_llm'
+                'system_type': 'hyde_llm',
+                'hypothetical_doc_regenerated': 'hypothetical_document' not in sample
             }
         else:
             # Case 2: Options provided
@@ -249,5 +266,6 @@ Answer: """
                 'technique': sample.get('technique', 'hyde'),
                 'method': 'logit_based',
                 'hypothetical_document': hypothetical_doc,
-                'system_type': 'hyde_llm'
+                'system_type': 'hyde_llm',
+                'hypothetical_doc_regenerated': 'hypothetical_document' not in sample
             }
