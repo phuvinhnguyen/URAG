@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 import numpy as np
 import ray
 import torch
-import vllm
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from blingfire import text_to_sentences_and_offsets
 from bs4 import BeautifulSoup
 from sentence_transformers import SentenceTransformer
@@ -45,9 +45,9 @@ MAX_CONTEXT_REFERENCES_LENGTH = 4000
 # Batch size you wish the evaluators will use to call the `batch_generate_answer` function
 SUBMISSION_BATCH_SIZE = 8 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
 
-# VLLM Parameters 
-VLLM_TENSOR_PARALLEL_SIZE = 4 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
-VLLM_GPU_MEMORY_UTILIZATION = 0.85 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
+# Transformers Parameters 
+TRANSFORMERS_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # TUNE THIS VARIABLE depending on your available hardware
+TRANSFORMERS_DTYPE = torch.float16 if torch.cuda.is_available() else torch.float32  # TUNE THIS VARIABLE for memory optimization
 
 # Sentence Transformer Parameters
 SENTENTENCE_TRANSFORMER_BATCH_SIZE = 128 # TUNE THIS VARIABLE depending on the size of your embedding model and GPU mem available
@@ -164,16 +164,28 @@ class RAGModel(AbstractRAGSystem):
         self.chunk_extractor = ChunkExtractor()
 
     def initialize_models(self):
-        # Initialize the model with vllm
-        self.llm = vllm.LLM(
+        # Initialize the model with transformers
+        self.tokenizer = AutoTokenizer.from_pretrained(
             self.model_name,
-            tensor_parallel_size=VLLM_TENSOR_PARALLEL_SIZE, 
-            gpu_memory_utilization=VLLM_GPU_MEMORY_UTILIZATION, 
             trust_remote_code=True,
-            dtype="half", # note: update the dtype based on the available GPU
-            enforce_eager=True
+            padding_side="left"
         )
-        self.tokenizer = self.llm.get_tokenizer()
+        
+        # Set pad token if not present
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        self.llm = AutoModelForCausalLM.from_pretrained(
+            self.model_name,
+            trust_remote_code=True,
+            torch_dtype=TRANSFORMERS_DTYPE,
+            device_map="auto" if TRANSFORMERS_DEVICE == "cuda" else None
+        )
+        
+        if TRANSFORMERS_DEVICE == "cuda":
+            self.llm = self.llm.to(TRANSFORMERS_DEVICE)
+        
+        self.llm.eval()  # Set to evaluation mode
 
         # Load a sentence transformer model optimized for sentence embeddings, using CUDA if available.
         self.sentence_model = SentenceTransformer(
@@ -311,29 +323,42 @@ class RAGModel(AbstractRAGSystem):
         # Prepare formatted prompts from the LLM        
         formatted_prompts = self.format_prompts(queries, query_times, batch_retrieval_results)
 
-        # Generate responses via vllm
-        responses = self.llm.generate(
-            formatted_prompts,
-            vllm.SamplingParams(
-                n=1,  # Number of output sequences to return for each prompt.
-                top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider.
-                temperature=0.1,  # Randomness of the sampling
-                skip_special_tokens=True,  # Whether to skip special tokens in the output.
-                max_tokens=50,  # Maximum number of tokens to generate per output sequence.
-                
-                # Note: We are using 50 max new tokens instead of 75,
-                # because the 75 max token limit for the competition is checked using the Llama2 tokenizer.
-                # Llama3 instead uses a different tokenizer with a larger vocabulary
-                # This allows the Llama3 tokenizer to represent the same content more efficiently, 
-                # while using fewer tokens.
-            ),
-            use_tqdm=False # you might consider setting this to True during local development
-        )
-
-        # Aggregate answers into List[str]
+        # Generate responses via transformers
         answers = []
-        for response in responses:
-            answers.append(response.outputs[0].text)
+        
+        for prompt in formatted_prompts:
+            # Tokenize the prompt
+            inputs = self.tokenizer(
+                prompt, 
+                return_tensors="pt", 
+                padding=True, 
+                truncation=True,
+                max_length=2048  # Adjust based on your model's context window
+            )
+            
+            if TRANSFORMERS_DEVICE == "cuda":
+                inputs = {k: v.to(TRANSFORMERS_DEVICE) for k, v in inputs.items()}
+            
+            # Generate response
+            with torch.no_grad():
+                outputs = self.llm.generate(
+                    **inputs,
+                    max_new_tokens=50,  # Maximum number of tokens to generate
+                    do_sample=True,
+                    temperature=0.1,  # Randomness of the sampling
+                    top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider
+                    pad_token_id=self.tokenizer.eos_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    num_return_sequences=1
+                )
+            
+            # Decode the generated text
+            generated_text = self.tokenizer.decode(
+                outputs[0][inputs['input_ids'].shape[1]:],  # Only decode the new tokens
+                skip_special_tokens=True
+            )
+            
+            answers.append(generated_text)
         
         return answers
 
