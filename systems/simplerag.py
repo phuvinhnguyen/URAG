@@ -17,7 +17,7 @@ class SimpleRAGSystem(AbstractRAGSystem):
     def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "auto", **kwargs):
         """Initialize the RAG system with an LLM and simple retrieval."""
         # Initialize the LLM component
-        self.llm_system = SimpleLLMSystem(model_name, device)
+        self.llm_system = SimpleLLMSystem(model_name, device, technique='rag')
     
     def get_batch_size(self) -> int:
         """Return batch size."""
