@@ -186,6 +186,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
             
             # Generate response
             response = self._generate_response(prompt, temperature=0.1)
+            print(f"Response: {response}")
             
             # Compute option probabilities using logits
             option_probabilities = self._compute_option_probabilities(response, options)
