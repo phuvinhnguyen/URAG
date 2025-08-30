@@ -21,7 +21,7 @@ class HyDERAGSystem(AbstractRAGSystem):
     4. Generate final answer using retrieved context
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "auto", **kwargs):
+    def __init__(self, model_name: str = "meta-llama/Llama-2-7b-chat-hf", device: str = "auto", **kwargs):
         """Initialize the HyDE RAG system with an LLM and enhanced retrieval."""
         # Initialize the HyDE LLM component
         self.llm_system = HyDELLMSystem(model_name, device)

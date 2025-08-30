@@ -118,7 +118,7 @@ class RAGSystemTester:
             # Initialize HyDE system
             self.print_step(1, "Initializing HyDE RAG System")
             hyde_system = HyDERAGSystem(
-                model_name="gpt2",
+                model_name="meta-llama/Llama-2-7b-chat-hf",
                 device="auto"
             )
             
@@ -154,7 +154,7 @@ class RAGSystemTester:
             # Initialize Fusion system
             self.print_step(1, "Initializing Fusion RAG System")
             fusion_system = FusionRAGSystem(
-                model_name="gpt2",
+                model_name="meta-llama/Llama-2-7b-chat-hf",
                 device="auto",
                 num_queries=3,
                 k=60
