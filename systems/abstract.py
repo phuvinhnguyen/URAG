@@ -14,7 +14,6 @@ class AbstractRAGSystem(ABC):
     - Hybrid approaches
     """
     
-    @abstractmethod
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a single sample and return results.
