@@ -366,6 +366,7 @@ class QdrantVectorDB:
             List of search results with metadata
         """
         
+        print(f"Searching in database {db_index} with method {method} and k={k}")
         if db_index is None:
             db_index = self.current_db_index
         

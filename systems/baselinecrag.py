@@ -164,19 +164,9 @@ class RAGModel(AbstractRAGSystem):
         self.chunk_extractor = ChunkExtractor()
 
     def initialize_models(self):
-        # Initialize Meta Llama 3 - 8B Instruct Model
-        if not os.path.exists(self.model_name):
-            raise Exception(
-                f"""
-            The evaluators expect the model weights to be checked into the repository,
-            but we could not find the model weights at {self.model_name}
-            """
-            )
-
         # Initialize the model with vllm
         self.llm = vllm.LLM(
             self.model_name,
-            worker_use_ray=True,
             tensor_parallel_size=VLLM_TENSOR_PARALLEL_SIZE, 
             gpu_memory_utilization=VLLM_GPU_MEMORY_UTILIZATION, 
             trust_remote_code=True,

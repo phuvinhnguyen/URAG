@@ -23,37 +23,6 @@ class SimpleRAGSystem(AbstractRAGSystem):
         """Return batch size."""
         return 1
     
-    def _retrieve_context(self, question: str) -> List[str]:
-        """Simple keyword-based retrieval."""
-        question_lower = question.lower()
-        retrieved_docs = []
-        
-        # Score each knowledge entry by keyword overlap
-        scored_docs = []
-        for keyword, doc in self.knowledge_base.items():
-            score = 0
-            if keyword in question_lower:
-                score = 2  # Exact keyword match
-            else:
-                # Check for partial matches
-                keyword_words = keyword.split()
-                for word in keyword_words:
-                    if word in question_lower:
-                        score += 1
-                        
-            if score > 0:
-                scored_docs.append((score, keyword, doc))
-        
-        # Sort by score and take top results
-        scored_docs.sort(key=lambda x: x[0], reverse=True)
-        
-        # Return top 3 documents
-        for score, keyword, doc in scored_docs[:3]:
-            retrieved_docs.append(doc)
-            logger.debug(f"Retrieved (score={score}): {keyword} -> {doc[:50]}...")
-        
-        return retrieved_docs
-    
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process sample with RAG enhancement."""
         # Retrieve relevant context
