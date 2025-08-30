@@ -48,7 +48,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
             return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your answer."
         elif technique == 'rag':
             # For simple LLM, just mention if context exists but don't use it effectively
-            context = sample.get('search_results', sample.get('context', ''))
+            context = sample.get('context', '')
             if context:
                 return f"Context information: {context}\n\nQuestion: {question}\n\nPlease provide your final answer in the format <answer>X</answer>."
             else:

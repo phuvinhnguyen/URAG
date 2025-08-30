@@ -49,18 +49,8 @@ class SimpleRAGSystem(AbstractRAGSystem):
         
         # Augment sample with retrieved context
         augmented_sample = sample.copy()
-        if retrieved_docs:
-            # Combine retrieved documents
-            retrieved_context = "\n".join([i['chunk'] for i in retrieved_docs])
-            
-            # Add to existing context if any
-            existing_context = sample.get('search_results', sample.get('context', ''))
-            if existing_context:
-                combined_context = f"{existing_context}\n\nAdditional context:\n{retrieved_context}"
-            else:
-                combined_context = f"Context:\n{retrieved_context}"
-            
-            augmented_sample['search_results'] = combined_context
+        if retrieved_docs:            
+            augmented_sample['context'] = "\n".join([i['chunk'] for i in retrieved_docs])
             augmented_sample['technique'] = 'rag'
             
             logger.debug(f"Enhanced sample with {len(retrieved_docs)} retrieved documents")
