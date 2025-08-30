@@ -164,51 +164,23 @@ class FusionLLMSystem(AbstractRAGSystem):
     
     def _compute_option_probabilities(self, response: str, options: List[str]) -> Dict[str, float]:
         """Compute softmax probabilities for each option."""
-        start_pos, end_pos = self._find_answer_positions(response)
+        start_pos, end_pos = self._find_answer_positions(response + '<answer>A</answer>')
         
         if start_pos == -1:
+            # If no answer format found, return uniform distribution
             uniform_prob = 1.0 / len(options)
             return {option: uniform_prob for option in options}
         
-        probabilities = {}
-        logits = []
+        inputs = self.tokenizer.encode(response[:start_pos], return_tensors="pt", truncation=True, max_length=512).to(self.device)
         
-        for option in options:
-            modified_response = response[:start_pos] + option + response[end_pos:]
-            
-            inputs = self.tokenizer.encode(modified_response, return_tensors="pt", truncation=True, max_length=512)
-            inputs = inputs.to(self.device)
-            
-            with torch.no_grad():
-                outputs = self.model(inputs)
-                option_tokens = self.tokenizer.encode(option, add_special_tokens=False)
-                if not option_tokens:
-                    logits.append(-float('inf'))
-                    continue
-                    
-                option_token_id = option_tokens[0]
-                input_ids = inputs[0].cpu().numpy()
-                
-                option_pos = -1
-                for i in range(len(input_ids) - len(option_tokens) + 1):
-                    if np.array_equal(input_ids[i:i+len(option_tokens)], option_tokens):
-                        option_pos = i
-                        break
-                
-                if option_pos > 0:
-                    logit = outputs.logits[0, option_pos-1, option_token_id].item()
-                else:
-                    logit = outputs.logits[0, -1, option_token_id].item()
-                
-                logits.append(logit)
-        
-        logits_tensor = torch.tensor(logits)
-        probs_tensor = F.softmax(logits_tensor, dim=0)
-        
-        for i, option in enumerate(options):
-            probabilities[option] = probs_tensor[i].item()
-        
-        return probabilities
+        with torch.no_grad():
+            logits = self.model(inputs).logits[0, -1, :]
+
+        option_tokens = [self.tokenizer.encode(option, add_special_tokens=False)[0] for option in options]
+
+        logits = F.softmax(logits[option_tokens], dim=0)
+
+        return {option: logits[i].item() for i, option in enumerate(options)}
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single sample through the Fusion LLM system."""
@@ -256,7 +228,7 @@ class FusionLLMSystem(AbstractRAGSystem):
             
             response = self._generate_response(prompt, temperature=0.1)
             option_probabilities = self._compute_option_probabilities(response, options)
-            predicted_answer = self._extract_answer(response)
+            predicted_answer = max(option_probabilities.items(), key=lambda x: x[1])[0]
             
             return {
                 'id': sample.get('id', 'unknown'),
