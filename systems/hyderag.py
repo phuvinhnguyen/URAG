@@ -270,33 +270,22 @@ class HyDERAGSystem(AbstractRAGSystem):
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process sample with HyDE RAG enhancement."""
         question = sample.get('question', '')
+        documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
+                     doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
+                     for doc in sample.get('search_results', [])]
+        
+        database = QdrantVectorDB(
+            texts=documents,
+            embedding_model="sentence_transformers",
+            chunk_size=70,
+            overlap=20
+        )
         
         # Step 1: Generate hypothetical document using HyDE LLM
         hypothetical_doc = self.llm_system.generate_hypothetical_document(question)
         logger.info(f"Generated hypothetical document: {hypothetical_doc[:100]}...")
-        
-        # Step 2: Extract existing documents from dataset (if available)
-        existing_docs = self._extract_existing_documents(sample)
-        
-        # Step 3: Choose retrieval strategy based on available documents
-        if existing_docs:
-            # Use existing documents from dataset (CRAG case)
-            logger.info(f"Using {len(existing_docs)} existing documents from dataset")
-            hyde_retrieved_docs = self._retrieve_from_existing_docs(question, hypothetical_doc, existing_docs)
-            retrieval_method = 'existing_docs_hyde'
-            source_type = 'dataset_provided'
-        else:
-            # Use built-in knowledge base (Example case)
-            logger.info("No existing documents found, using built-in knowledge base")
-            hyde_retrieved_docs = self._retrieve_context_hyde(question, hypothetical_doc)
-            retrieval_method = 'knowledge_base_hyde' 
-            source_type = 'built_in_kb'
-            
-            # Fallback to traditional retrieval if HyDE retrieval fails
-            if not hyde_retrieved_docs:
-                logger.info("HyDE retrieval failed, falling back to traditional retrieval")
-                hyde_retrieved_docs = self._retrieve_context_traditional(question)
-                retrieval_method = 'traditional_fallback'
+
+        hyde_retrieved_docs = database.search(hypothetical_doc, method="hybrid", k=3)
         
         # Step 4: Augment sample with retrieved context
         augmented_sample = sample.copy()
@@ -306,11 +295,8 @@ class HyDERAGSystem(AbstractRAGSystem):
             combined_context = f"Context:\n{retrieved_context}"
             
             augmented_sample['search_results'] = combined_context
-            augmented_sample['technique'] = 'hyde'
-            
-            logger.debug(f"Enhanced sample with {len(hyde_retrieved_docs)} HyDE-retrieved documents from {source_type}")
+            augmented_sample['technique'] = 'hyde'            
         else:
-            logger.debug(f"No relevant documents found for HyDE retrieval from {source_type}")
             augmented_sample['technique'] = 'hyde'
         
         # Pass the hypothetical document to avoid regenerating it in HyDELLMSystem
@@ -323,12 +309,9 @@ class HyDERAGSystem(AbstractRAGSystem):
         result.update({
             'retrieved_docs': hyde_retrieved_docs,
             'num_retrieved_docs': len(hyde_retrieved_docs),
-            'num_available_docs': len(existing_docs) if existing_docs else len(self.knowledge_base),
             'hyde_enhanced': bool(hyde_retrieved_docs),
             'system_type': 'hyde_rag',
             'hypothetical_document': hypothetical_doc,
-            'retrieval_method': retrieval_method,
-            'document_source': source_type
         })
         
         return result

@@ -65,8 +65,8 @@ class SimpleRAGSystem(AbstractRAGSystem):
         database = QdrantVectorDB(
             texts=documents,
             embedding_model="sentence_transformers",
-            chunk_size=300,
-            overlap=150
+            chunk_size=70,
+            overlap=20
         )
                 
         retrieved_docs = database.search(question, method="hybrid", k=3)
