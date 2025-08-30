@@ -158,14 +158,13 @@ class RAGModel(AbstractRAGSystem):
     """
     An example RAGModel
     """
-    def __init__(self):
+    def __init__(self, model_name: str = "meta-llama/Meta-Llama-3-8B-Instruct", **kwargs):
+        self.model_name = model_name
         self.initialize_models()
         self.chunk_extractor = ChunkExtractor()
 
     def initialize_models(self):
         # Initialize Meta Llama 3 - 8B Instruct Model
-        self.model_name = "models/meta-llama/Meta-Llama-3-8B-Instruct"
-
         if not os.path.exists(self.model_name):
             raise Exception(
                 f"""
