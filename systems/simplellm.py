@@ -146,6 +146,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
         """Process a single sample through the LLM system."""
         # Generate prompt
         prompt = self._generate_prompt(sample)
+        logger.info(f"Prompt used: {prompt}")
         
         # Extract options from the sample
         options = sample.get('options', [])
