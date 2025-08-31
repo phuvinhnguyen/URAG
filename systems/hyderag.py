@@ -25,7 +25,6 @@ class HyDERAGSystem(AbstractRAGSystem):
         """Initialize the HyDE RAG system with an LLM and enhanced retrieval."""
         # Initialize the HyDE LLM component
         self.llm_system = HyDELLMSystem(model_name, device, technique='rag')
-        logger.info(f"Initialized HyDE RAG with {len(self.knowledge_base)} knowledge entries")
     
     def get_batch_size(self) -> int:
         """Return batch size."""
