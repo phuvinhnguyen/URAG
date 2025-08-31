@@ -16,7 +16,7 @@ class HyDELLMSystem(AbstractRAGSystem):
     then uses that document for retrieval instead of the original query.
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, technique: str = "direct"):
         """Initialize the HyDE LLM system."""
         if device == "auto":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -24,7 +24,7 @@ class HyDELLMSystem(AbstractRAGSystem):
             self.device = torch.device(device)
             
         self.num_samples = num_samples
-            
+        self.technique = technique
         logger.info(f"Loading HyDE model {model_name} on {self.device}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
@@ -68,7 +68,7 @@ Answer: """
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         """Generate prompt based on sample technique."""
         question = sample.get('question', '')
-        technique = sample.get('technique', 'direct')
+        technique = self.technique
         
         # Build options text if available
         options_text = ""
@@ -214,7 +214,7 @@ Answer: """
                 'option_probabilities': option_probabilities,
                 'num_samples_generated': len(answers),
                 'prompt_used': prompt,
-                'technique': sample.get('technique', 'hyde'),
+                'technique': self.technique,
                 'method': 'frequency_based',
                 'hypothetical_document': hypothetical_doc,
                 'system_type': 'hyde_llm',
@@ -235,7 +235,7 @@ Answer: """
                 'option_probabilities': option_probabilities,
                 'provided_options': options,
                 'prompt_used': prompt,
-                'technique': sample.get('technique', 'hyde'),
+                'technique': self.technique,
                 'method': 'logit_based',
                 'hypothetical_document': hypothetical_doc,
                 'system_type': 'hyde_llm',
