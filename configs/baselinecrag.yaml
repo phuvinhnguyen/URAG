@@ -1,0 +1,9 @@
+system:
+  name: baselinecrag
+  alpha: 0.1
+  args:
+    model_name: Qwen/Qwen3-4B
+    # device is auto-detected if not specified
+
+dataset: datasets/crag_task_1_and_2_example.json
+output: results/baselinecrag_qwen3_4b

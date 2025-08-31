@@ -14,7 +14,6 @@ class AbstractRAGSystem(ABC):
     - Hybrid approaches
     """
     
-    @abstractmethod
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """
         Process a single sample and return results.
@@ -58,7 +57,7 @@ class AbstractRAGSystem(ABC):
                 result = self.process_sample(sample)
                 results.append(result)
             except Exception as e:
-                logger.error(f"Error processing sample {sample.get('id', 'unknown')}: {e}")
+                logger.exception(f"Error processing sample {sample.get('id', 'unknown')}: {e}")
                 # Add error result
                 error_result = {
                     'id': sample.get('id', 'unknown'),

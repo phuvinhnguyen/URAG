@@ -16,70 +16,24 @@ class HyDELLMSystem(AbstractRAGSystem):
     then uses that document for retrieval instead of the original query.
     """
     
-    def __init__(self, model_name: str = "mistralai/Mistral-7B-Instruct-v0.1", device: str = "auto", num_samples: int = 20):
-        """Initialize the HyDE LLM system with automatic model fallback."""
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, technique: str = "direct"):
+        """Initialize the HyDE LLM system."""
         if device == "auto":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
             
         self.num_samples = num_samples
+        self.technique = technique
+        logger.info(f"Loading HyDE model {model_name} on {self.device}")
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.model.to(self.device)
+        self.model.eval()
         
-        # Try to load the requested model, with fallback
-        self.model_name = self._load_model_with_fallback(model_name)
-        
-        logger.info(f"Successfully loaded HyDE model: {self.model_name}")
-    
-    def _load_model_with_fallback(self, preferred_model: str) -> str:
-        """Load model with automatic fallback if preferred model fails."""
-        # List of open-source models to try in order of preference
-        fallback_models = [
-            preferred_model,
-            "mistralai/Mistral-7B-Instruct-v0.1",
-            "tiiuae/falcon-7b-instruct",
-            "mosaicml/mpt-7b-chat",
-            "microsoft/DialoGPT-medium",
-            "microsoft/DialoGPT-small", 
-            "gpt2-medium",
-            "gpt2",
-            "distilgpt2"
-        ]
-        
-        for model_name in fallback_models:
-            try:
-                logger.info(f"Attempting to load model: {model_name}")
-                
-                # Standard model loading approach for all models
-                self.tokenizer = AutoTokenizer.from_pretrained(
-                    model_name,
-                    trust_remote_code=True
-                )
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    model_name,
-                    torch_dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
-                    device_map="auto" if self.device.type == "cuda" else None,
-                    trust_remote_code=True
-                )
-                
-                if self.device.type != "cuda" or "device_map" not in locals():
-                    self.model.to(self.device)
-                
-                self.model.eval()
-                
-                # Add pad token if not present
-                if self.tokenizer.pad_token is None:
-                    self.tokenizer.pad_token = self.tokenizer.eos_token
-                
-                if model_name != preferred_model:
-                    logger.warning(f"Preferred model '{preferred_model}' failed, using fallback: '{model_name}'")
-                
-                return model_name
-                
-            except Exception as e:
-                logger.warning(f"Failed to load model '{model_name}': {str(e)}")
-                continue
-        
-        raise RuntimeError(f"Failed to load any compatible model. Last attempted: {fallback_models}")
+        # Add pad token if not present
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
     
     def get_batch_size(self) -> int:
         """Return batch size of 1 for this implementation."""
@@ -143,7 +97,7 @@ class HyDELLMSystem(AbstractRAGSystem):
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         """Generate prompt based on sample technique."""
         question = sample.get('question', '')
-        technique = sample.get('technique', 'direct')
+        technique = self.technique
         
         # Build options text if available
         options_text = ""
@@ -279,51 +233,23 @@ class HyDELLMSystem(AbstractRAGSystem):
     
     def _compute_option_probabilities(self, response: str, options: List[str]) -> Dict[str, float]:
         """Compute softmax probabilities for each option."""
-        start_pos, end_pos = self._find_answer_positions(response)
+        start_pos, end_pos = self._find_answer_positions(response + '<answer>A</answer>')
         
         if start_pos == -1:
+            # If no answer format found, return uniform distribution
             uniform_prob = 1.0 / len(options)
             return {option: uniform_prob for option in options}
         
-        probabilities = {}
-        logits = []
+        inputs = self.tokenizer.encode(response[:start_pos], return_tensors="pt", truncation=True, max_length=512).to(self.device)
         
-        for option in options:
-            modified_response = response[:start_pos] + option + response[end_pos:]
-            
-            inputs = self.tokenizer.encode(modified_response, return_tensors="pt", truncation=True, max_length=512)
-            inputs = inputs.to(self.device)
-            
-            with torch.no_grad():
-                outputs = self.model(inputs)
-                option_tokens = self.tokenizer.encode(option, add_special_tokens=False)
-                if not option_tokens:
-                    logits.append(-float('inf'))
-                    continue
-                    
-                option_token_id = option_tokens[0]
-                input_ids = inputs[0].cpu().numpy()
-                
-                option_pos = -1
-                for i in range(len(input_ids) - len(option_tokens) + 1):
-                    if np.array_equal(input_ids[i:i+len(option_tokens)], option_tokens):
-                        option_pos = i
-                        break
-                
-                if option_pos > 0:
-                    logit = outputs.logits[0, option_pos-1, option_token_id].item()
-                else:
-                    logit = outputs.logits[0, -1, option_token_id].item()
-                
-                logits.append(logit)
-        
-        logits_tensor = torch.tensor(logits)
-        probs_tensor = F.softmax(logits_tensor, dim=0)
-        
-        for i, option in enumerate(options):
-            probabilities[option] = probs_tensor[i].item()
-        
-        return probabilities
+        with torch.no_grad():
+            logits = self.model(inputs).logits[0, -1, :]
+
+        option_tokens = [self.tokenizer.encode(option, add_special_tokens=False)[0] for option in options]
+
+        logits = F.softmax(logits[option_tokens], dim=0)
+
+        return {option: logits[i].item() for i, option in enumerate(options)}
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single sample through the HyDE LLM system."""
@@ -365,7 +291,7 @@ class HyDELLMSystem(AbstractRAGSystem):
                 'option_probabilities': option_probabilities,
                 'num_samples_generated': len(answers),
                 'prompt_used': prompt,
-                'technique': sample.get('technique', 'hyde'),
+                'technique': self.technique,
                 'method': 'frequency_based',
                 'hypothetical_document': hypothetical_doc,
                 'system_type': 'hyde_llm',
@@ -377,7 +303,7 @@ class HyDELLMSystem(AbstractRAGSystem):
             
             response = self._generate_response(prompt, temperature=0.1)
             option_probabilities = self._compute_option_probabilities(response, options)
-            predicted_answer = self._extract_answer(response)
+            predicted_answer = max(option_probabilities.items(), key=lambda x: x[1])[0]
             
             return {
                 'id': sample.get('id', 'unknown'),
@@ -386,7 +312,7 @@ class HyDELLMSystem(AbstractRAGSystem):
                 'option_probabilities': option_probabilities,
                 'provided_options': options,
                 'prompt_used': prompt,
-                'technique': sample.get('technique', 'hyde'),
+                'technique': self.technique,
                 'method': 'logit_based',
                 'hypothetical_document': hypothetical_doc,
                 'system_type': 'hyde_llm',

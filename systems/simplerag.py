@@ -17,46 +17,16 @@ class SimpleRAGSystem(AbstractRAGSystem):
     def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "auto", **kwargs):
         """Initialize the RAG system with an LLM and simple retrieval."""
         # Initialize the LLM component
-        self.llm_system = SimpleLLMSystem(model_name, device)
+        self.llm_system = SimpleLLMSystem(model_name, device, technique='rag')
     
     def get_batch_size(self) -> int:
         """Return batch size."""
         return 1
     
-    def _retrieve_context(self, question: str) -> List[str]:
-        """Simple keyword-based retrieval."""
-        question_lower = question.lower()
-        retrieved_docs = []
-        
-        # Score each knowledge entry by keyword overlap
-        scored_docs = []
-        for keyword, doc in self.knowledge_base.items():
-            score = 0
-            if keyword in question_lower:
-                score = 2  # Exact keyword match
-            else:
-                # Check for partial matches
-                keyword_words = keyword.split()
-                for word in keyword_words:
-                    if word in question_lower:
-                        score += 1
-                        
-            if score > 0:
-                scored_docs.append((score, keyword, doc))
-        
-        # Sort by score and take top results
-        scored_docs.sort(key=lambda x: x[0], reverse=True)
-        
-        # Return top 3 documents
-        for score, keyword, doc in scored_docs[:3]:
-            retrieved_docs.append(doc)
-            logger.debug(f"Retrieved (score={score}): {keyword} -> {doc[:50]}...")
-        
-        return retrieved_docs
-    
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process sample with RAG enhancement."""
         # Retrieve relevant context
+        num_retrieved_docs = 10
         question = sample.get('question', '')
         documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
                      doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
@@ -65,11 +35,11 @@ class SimpleRAGSystem(AbstractRAGSystem):
         database = QdrantVectorDB(
             texts=documents,
             embedding_model="sentence_transformers",
-            chunk_size=300,
-            overlap=150
+            chunk_size=30,
+            overlap=10
         )
                 
-        retrieved_docs = database.search(question, method="hybrid", k=3)
+        retrieved_docs = database.search(question, method="hybrid", k=num_retrieved_docs)
 
         # clean and remove database from memory to save RAM as much as possible
         try:
@@ -80,18 +50,8 @@ class SimpleRAGSystem(AbstractRAGSystem):
         
         # Augment sample with retrieved context
         augmented_sample = sample.copy()
-        if retrieved_docs:
-            # Combine retrieved documents
-            retrieved_context = "\n".join([i['chunk'] for i in retrieved_docs])
-            
-            # Add to existing context if any
-            existing_context = sample.get('search_results', sample.get('context', ''))
-            if existing_context:
-                combined_context = f"{existing_context}\n\nAdditional context:\n{retrieved_context}"
-            else:
-                combined_context = f"Context:\n{retrieved_context}"
-            
-            augmented_sample['search_results'] = combined_context
+        if retrieved_docs:            
+            augmented_sample['context'] = "- " + "\n- ".join([i['chunk'] for i in retrieved_docs])
             augmented_sample['technique'] = 'rag'
             
             logger.debug(f"Enhanced sample with {len(retrieved_docs)} retrieved documents")

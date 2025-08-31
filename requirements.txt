@@ -16,4 +16,6 @@ beautifulsoup4>=4.12.2
 html5lib>=1.1
 faiss-cpu>=1.7.4
 tiktoken>=0.5.2
+lxml>=4.9.3
+blingfire>=0.1.7
 accelerate>=1.10.1
