@@ -370,7 +370,7 @@ class RAGModel(AbstractRAGSystem):
         - query_times (List[str]): A list of query_time strings corresponding to each query.
         - batch_retrieval_results (List[str])
         """        
-        system_prompt = "You are provided with a question and various references. Your task is to answer the question succinctly, using the fewest words possible. If the references do not contain the necessary information to answer the question, respond with 'I don't know'. There is no need to explain the reasoning behind your answers."
+        system_prompt = "You are provided with a multiple choice question and various references. Your task is to answer the question succinctly, using the fewest words possible. There is no need to explain the reasoning behind your answers. Your answer must end with <answer>X</answer> where X is your predicted answer (A, B, C, D, or E)."
         formatted_prompts = []
 
         for _idx, query in enumerate(queries):
