@@ -32,6 +32,7 @@ class HyDERAGSystem(AbstractRAGSystem):
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process sample with HyDE RAG enhancement."""
+        num_retrieved_docs = 10
         question = sample.get('question', '')
         documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
                      doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
@@ -40,20 +41,20 @@ class HyDERAGSystem(AbstractRAGSystem):
         database = QdrantVectorDB(
             texts=documents,
             embedding_model="sentence_transformers",
-            chunk_size=70,
-            overlap=20
+            chunk_size=20,
+            overlap=5
         )
         
         # Step 1: Generate hypothetical document using HyDE LLM
         hypothetical_doc = self.llm_system.generate_hypothetical_document(question)
         logger.info(f"Generated hypothetical document: {hypothetical_doc[:100]}...")
 
-        hyde_retrieved_docs = database.search(hypothetical_doc, method="hybrid", k=3)
+        hyde_retrieved_docs = database.search(hypothetical_doc, method="hybrid", k=num_retrieved_docs)
         
         # Step 4: Augment sample with retrieved context
         augmented_sample = sample.copy()
         if hyde_retrieved_docs:
-            augmented_sample['search_results'] = "\n".join([i['chunk'] for i in hyde_retrieved_docs])
+            augmented_sample['search_results'] = "\n-".join([i['chunk'] for i in hyde_retrieved_docs])
             augmented_sample['technique'] = 'hyde'            
         else:
             augmented_sample['technique'] = 'hyde'

@@ -26,6 +26,7 @@ class SimpleRAGSystem(AbstractRAGSystem):
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process sample with RAG enhancement."""
         # Retrieve relevant context
+        num_retrieved_docs = 10
         question = sample.get('question', '')
         documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
                      doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
@@ -34,11 +35,11 @@ class SimpleRAGSystem(AbstractRAGSystem):
         database = QdrantVectorDB(
             texts=documents,
             embedding_model="sentence_transformers",
-            chunk_size=70,
-            overlap=20
+            chunk_size=20,
+            overlap=5
         )
                 
-        retrieved_docs = database.search(question, method="hybrid", k=3)
+        retrieved_docs = database.search(question, method="hybrid", k=num_retrieved_docs)
 
         # clean and remove database from memory to save RAM as much as possible
         try:
@@ -50,7 +51,7 @@ class SimpleRAGSystem(AbstractRAGSystem):
         # Augment sample with retrieved context
         augmented_sample = sample.copy()
         if retrieved_docs:            
-            augmented_sample['context'] = "\n".join([i['chunk'] for i in retrieved_docs])
+            augmented_sample['context'] = "\n-".join([i['chunk'] for i in retrieved_docs])
             augmented_sample['technique'] = 'rag'
             
             logger.debug(f"Enhanced sample with {len(retrieved_docs)} retrieved documents")

@@ -395,8 +395,6 @@ class RAGModel(AbstractRAGSystem):
             user_message += f"Current Time: {query_time}\n"
             user_message += f"Question: {query}\n"
             user_message += f"Your answer must be just <answer>X</answer> where X is your predicted answer (A, B, C, D, or E).\n"
-
-            print(user_message)
             
             formatted_prompts.append(
                 self.tokenizer.apply_chat_template(

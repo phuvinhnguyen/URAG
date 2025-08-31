@@ -18,7 +18,7 @@ class FusionLLMSystem(AbstractRAGSystem):
     3. Apply Reciprocal Rank Fusion to combine results
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, num_queries: int = 3):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, num_queries: int = 3, technique: str = "direct"):
         """Initialize the Fusion LLM system."""
         if device == "auto":
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -27,7 +27,7 @@ class FusionLLMSystem(AbstractRAGSystem):
             
         self.num_samples = num_samples
         self.num_queries = num_queries  # Number of diverse queries to generate
-            
+        self.technique = technique
         logger.info(f"Loading Fusion model {model_name} on {self.device}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.model = AutoModelForCausalLM.from_pretrained(model_name)
@@ -75,7 +75,7 @@ class FusionLLMSystem(AbstractRAGSystem):
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         """Generate prompt based on sample technique."""
         question = sample.get('question', '')
-        technique = sample.get('technique', 'direct')
+        technique = self.technique
         
         # Build options text if available
         options_text = ""
@@ -217,7 +217,7 @@ class FusionLLMSystem(AbstractRAGSystem):
                 'option_probabilities': option_probabilities,
                 'num_samples_generated': len(answers),
                 'prompt_used': prompt,
-                'technique': sample.get('technique', 'fusion'),
+                'technique': self.technique,
                 'method': 'frequency_based',
                 'diverse_queries': diverse_queries,
                 'system_type': 'fusion_llm'
@@ -237,7 +237,7 @@ class FusionLLMSystem(AbstractRAGSystem):
                 'option_probabilities': option_probabilities,
                 'provided_options': options,
                 'prompt_used': prompt,
-                'technique': sample.get('technique', 'fusion'),
+                'technique': self.technique,
                 'method': 'logit_based',
                 'diverse_queries': diverse_queries,
                 'system_type': 'fusion_llm'
