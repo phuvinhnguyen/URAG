@@ -394,6 +394,8 @@ class RAGModel(AbstractRAGSystem):
             user_message += f"Using only the references listed above, answer the following question: \n"
             user_message += f"Current Time: {query_time}\n"
             user_message += f"Question: {query}\n"
+
+            print(user_message)
             
             formatted_prompts.append(
                 self.tokenizer.apply_chat_template(
