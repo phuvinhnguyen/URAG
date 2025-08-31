@@ -342,7 +342,7 @@ class RAGModel(AbstractRAGSystem):
             with torch.no_grad():
                 outputs = self.llm.generate(
                     **inputs,
-                    max_new_tokens=50,  # Maximum number of tokens to generate
+                    max_new_tokens=1024,  # Maximum number of tokens to generate
                     do_sample=True,
                     temperature=0.1,  # Randomness of the sampling
                     top_p=0.9,  # Float that controls the cumulative probability of the top tokens to consider
