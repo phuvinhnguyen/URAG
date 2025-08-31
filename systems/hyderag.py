@@ -53,7 +53,7 @@ class HyDERAGSystem(AbstractRAGSystem):
         # Step 4: Augment sample with retrieved context
         augmented_sample = sample.copy()
         if hyde_retrieved_docs:
-            augmented_sample['search_results'] = "\n".join(hyde_retrieved_docs)
+            augmented_sample['search_results'] = "\n".join([i['chunk'] for i in hyde_retrieved_docs])
             augmented_sample['technique'] = 'hyde'            
         else:
             augmented_sample['technique'] = 'hyde'
