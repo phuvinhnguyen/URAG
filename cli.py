@@ -183,7 +183,7 @@ def run_from_config(config_path: str, verbose: bool = False) -> Dict[str, Any]:
             cleanup_temp_files(cal_path, test_path)
     
     except Exception as e:
-        logger.error(f"Evaluation failed: {e}")
+        logger.exception("Evaluation failed")
         sys.exit(1)
 
 
