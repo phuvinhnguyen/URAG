@@ -35,8 +35,8 @@ class SimpleRAGSystem(AbstractRAGSystem):
         database = QdrantVectorDB(
             texts=documents,
             embedding_model="sentence_transformers",
-            chunk_size=20,
-            overlap=5
+            chunk_size=30,
+            overlap=10
         )
                 
         retrieved_docs = database.search(question, method="hybrid", k=num_retrieved_docs)
@@ -51,7 +51,7 @@ class SimpleRAGSystem(AbstractRAGSystem):
         # Augment sample with retrieved context
         augmented_sample = sample.copy()
         if retrieved_docs:            
-            augmented_sample['context'] = "\n-".join([i['chunk'] for i in retrieved_docs])
+            augmented_sample['context'] = "- " + "\n- ".join([i['chunk'] for i in retrieved_docs])
             augmented_sample['technique'] = 'rag'
             
             logger.debug(f"Enhanced sample with {len(retrieved_docs)} retrieved documents")

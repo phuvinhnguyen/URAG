@@ -75,8 +75,8 @@ class FusionRAGSystem(AbstractRAGSystem):
         database = QdrantVectorDB(
             texts=documents,
             embedding_model="sentence_transformers",
-            chunk_size=20,
-            overlap=5
+            chunk_size=30,
+            overlap=10
         )
         
         retrieved_docs = [sorted(database.search(query, method="hybrid", k=num_retrieved_docs), key=lambda x: x['score'], reverse=True) for query in diverse_queries]
@@ -87,7 +87,7 @@ class FusionRAGSystem(AbstractRAGSystem):
         augmented_sample = sample.copy()
         augmented_sample['diverse_queries'] = diverse_queries 
         if retrieved_docs:
-            augmented_sample['search_results'] = "\n-".join([i['chunk'] for i in retrieved_docs])
+            augmented_sample['search_results'] = "- " + "\n- ".join([i['chunk'] for i in retrieved_docs])
             augmented_sample['technique'] = 'fusion'
         
         # Step 5: Process through Fusion LLM system

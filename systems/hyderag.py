@@ -41,8 +41,8 @@ class HyDERAGSystem(AbstractRAGSystem):
         database = QdrantVectorDB(
             texts=documents,
             embedding_model="sentence_transformers",
-            chunk_size=20,
-            overlap=5
+            chunk_size=30,
+            overlap=10
         )
         
         # Step 1: Generate hypothetical document using HyDE LLM
@@ -54,7 +54,7 @@ class HyDERAGSystem(AbstractRAGSystem):
         # Step 4: Augment sample with retrieved context
         augmented_sample = sample.copy()
         if hyde_retrieved_docs:
-            augmented_sample['search_results'] = "\n-".join([i['chunk'] for i in hyde_retrieved_docs])
+            augmented_sample['search_results'] = "- " + "\n- ".join([i['chunk'] for i in hyde_retrieved_docs])
             augmented_sample['technique'] = 'hyde'            
         else:
             augmented_sample['technique'] = 'hyde'
