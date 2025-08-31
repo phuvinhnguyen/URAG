@@ -249,7 +249,7 @@ class RAGModel(AbstractRAGSystem):
         answers = self.batch_generate_answer(batch)
         for sample, answer in zip(samples, answers):
             sample['generated_response'] = answer
-            sample['predicted_answer'] = answer.split('</answer>')[0].split('<answer>')[1].strip()[0]
+            sample['predicted_answer'] = (answer.split('</answer>')[0].split('<answer>')[-1].strip() + 'A')[0]
             sample['provided_options'] = sample.get('options', [])
             sample['option_probabilities'] = {sample['options'][i]: 1.0/len(sample['options']) for i in range(len(sample['options']))}
         
