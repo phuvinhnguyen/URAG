@@ -228,58 +228,80 @@ Wrong summary:"""
     def convert_to_mcqa(self, document: str, correct_summary: str, sample_id: int) -> Dict:
         """Convert one sample to MCQA format matching CRAG dataset structure"""
         
-        # Generate distractors
-        distractors = []
-        metadata = {'types': [], 'chunks_used': [], 'success': []}
-        
-        for i in range(self.config['num_distractors']):
-            result = self.generate_distractor(correct_summary, document)
-            distractors.append(result['text'])
-            metadata['types'].append(result['type'])
-            metadata['chunks_used'].append(result['chunks_used'])
-            metadata['success'].append(result['success'])
-        
-        # Create options and shuffle
-        all_options = [correct_summary] + distractors
-        random.shuffle(all_options)
-        correct_idx = all_options.index(correct_summary)
-        
-        # Convert to letter format (A, B, C, D)
-        correct_answer = chr(65 + correct_idx)  # Convert 0,1,2,3 to A,B,C,D
-        
-        # Create options list with letters
-        options_letters = [chr(65 + i) for i in range(len(all_options))]
-        
-        # Create search_results structure matching CRAG format
-        search_results = [
-            {
-                "page_result": document,  # Full document as page_result
-                "page_snippet": "",       # Empty as required
-                "page_title": "",         # Empty field
-                "page_url": "",           # Empty field
-                "page_rank": 1,           # Default rank
-                "page_score": 1.0,        # Default score
-                "page_source": "generated", # Source identifier
-                "page_domain": "",        # Empty field
-                "page_language": "en",    # Default language
-                "page_metadata": {}       # Empty metadata
+        try:
+            # Generate distractors
+            distractors = []
+            metadata = {'types': [], 'chunks_used': [], 'success': []}
+            
+            for i in range(self.config['num_distractors']):
+                result = self.generate_distractor(correct_summary, document)
+                
+                # Check if distractor generation failed
+                if not result['text'] or not result['text'].strip():
+                    raise ValueError(f"Failed to generate distractor {i+1}: Empty or invalid text")
+                
+                distractors.append(result['text'])
+                metadata['types'].append(result['type'])
+                metadata['chunks_used'].append(result['chunks_used'])
+                metadata['success'].append(result['success'])
+            
+            # Validate that we have the correct number of distractors
+            if len(distractors) != self.config['num_distractors']:
+                raise ValueError(f"Expected {self.config['num_distractors']} distractors, got {len(distractors)}")
+            
+            # Create options and shuffle
+            all_options = [correct_summary] + distractors
+            random.shuffle(all_options)
+            correct_idx = all_options.index(correct_summary)
+            
+            # Convert to letter format (A, B, C, D)
+            correct_answer = chr(65 + correct_idx)  # Convert 0,1,2,3 to A,B,C,D
+            
+            # Create options list with letters
+            options_letters = [chr(65 + i) for i in range(len(all_options))]
+            
+            # Create search_results structure matching CRAG format
+            search_results = [
+                {
+                    "page_result": document,  # Full document as page_result
+                    "page_snippet": "",       # Empty as required
+                    "page_title": "",         # Empty field
+                    "page_url": "",           # Empty field
+                    "page_rank": 1,           # Default rank
+                    "page_score": 1.0,        # Default score
+                    "page_source": "generated", # Source identifier
+                    "page_domain": "",        # Empty field
+                    "page_language": "en",    # Default language
+                    "page_metadata": {}       # Empty metadata
+                }
+            ]
+            
+            return {
+                'id': sample_id,
+                'question': f"Which of the following best summarizes the given document?\nA. {all_options[0]}\nB. {all_options[1]}\nC. {all_options[2]}\nD. {all_options[3]}",
+                'correct_answer': correct_answer,
+                'options': options_letters,
+                'search_results': search_results,
+                'query_time': "March 1, 2024",  # Default query time
+                'technique': "rag",             # Default technique
+                'metadata': metadata,           # Keep original metadata for debugging
+                'conversion_success': True      # Flag to indicate successful conversion
             }
-        ]
-        
-        return {
-            'id': sample_id,
-            'question': f"Which of the following best summarizes the given document?\nA. {all_options[0]}\nB. {all_options[1]}\nC. {all_options[2]}\nD. {all_options[3]}",
-            'correct_answer': correct_answer,
-            'options': options_letters,
-            'search_results': search_results,
-            'query_time': "March 1, 2024",  # Default query time
-            'technique': "rag",             # Default technique
-            'metadata': metadata            # Keep original metadata for debugging
-        }
+            
+        except Exception as e:
+            # Return error information instead of raising
+            return {
+                'id': sample_id,
+                'error': str(e),
+                'conversion_success': False,
+                'original_document': document[:200] + "..." if len(document) > 200 else document,
+                'original_summary': correct_summary
+            }
     
     def process_dataset(self, dataset, num_samples: int = 100, start_idx: int = 0) -> List[Dict]:
         """Process dataset samples"""
         mcqa_samples = []
+        failed_samples = []
         processed = 0
         current_idx = start_idx
         
@@ -295,31 +317,57 @@ Wrong summary:"""
             
             try:
                 mcqa_sample = self.convert_to_mcqa(sample['document'], sample['summary'], processed + 1)
-                mcqa_samples.append(mcqa_sample)
-                processed += 1
+                
+                # Check if conversion was successful
+                if mcqa_sample.get('conversion_success', False):
+                    mcqa_samples.append(mcqa_sample)
+                    processed += 1
+                    print(f"✓ Successfully converted sample {processed}")
+                else:
+                    failed_samples.append(mcqa_sample)
+                    print(f"✗ Failed to convert sample: {mcqa_sample.get('error', 'Unknown error')}")
                 
                 if processed % 10 == 0:
-                    print(f"Processed {processed}/{num_samples}")
+                    print(f"Progress: {processed} successful, {len(failed_samples)} failed")
                     
             except Exception as e:
                 print(f"Error processing sample {current_idx-1}: {e}")
+                failed_samples.append({
+                    'id': processed + 1,
+                    'error': str(e),
+                    'conversion_success': False,
+                    'original_document': sample['document'][:200] + "..." if len(sample['document']) > 200 else sample['document'],
+                    'original_summary': sample['summary']
+                })
+        
+        print(f"\nProcessing Summary:")
+        print(f"  - Successful conversions: {len(mcqa_samples)}")
+        print(f"  - Failed conversions: {len(failed_samples)}")
+        print(f"  - Total attempted: {len(mcqa_samples) + len(failed_samples)}")
         
         return mcqa_samples
     
     def save_dataset(self, samples: List[Dict], filename: str, split_ratio: float = 0.5):
         """Save samples to JSON in CRAG format with calibration/test split"""
         
+        # Filter out failed samples to ensure only successful conversions are saved
+        successful_samples = [s for s in samples if s.get('conversion_success', False)]
+        
+        if len(successful_samples) == 0:
+            print("Warning: No successful conversions to save!")
+            return
+        
         # Split samples into calibration and test
-        split_idx = int(len(samples) * split_ratio)
-        calibration_samples = samples[:split_idx]
-        test_samples = samples[split_idx:]
+        split_idx = int(len(successful_samples) * split_ratio)
+        calibration_samples = successful_samples[:split_idx]
+        test_samples = successful_samples[split_idx:]
         
         # Create CRAG format dataset
         dataset = {
             "name": "CRAG_MCQA",
             "description": "CRAG Multiple Choice Question Answering dataset generated from Multi-News",
             "version": "1.0",
-            "total_samples": len(samples),
+            "total_samples": len(successful_samples),
             "calibration_samples": len(calibration_samples),
             "test_samples": len(test_samples),
             "calibration": calibration_samples,
@@ -328,9 +376,10 @@ Wrong summary:"""
         
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(dataset, f, indent=2, ensure_ascii=False)
-        print(f"Saved {len(samples)} samples to {filename}")
+        print(f"Saved {len(successful_samples)} successful samples to {filename}")
         print(f"  - Calibration: {len(calibration_samples)} samples")
         print(f"  - Test: {len(test_samples)} samples")
+        print(f"  - Filtered out {len(samples) - len(successful_samples)} failed conversions")
 
 
 # Simple usage example
@@ -370,5 +419,8 @@ if __name__ == "__main__":
         print(f"Search Results: {len(sample['search_results'])} items")
         print(f"Query Time: {sample['query_time']}")
         print(f"Technique: {sample['technique']}")
+        print(f"Conversion Success: {sample.get('conversion_success', 'N/A')}")
         print(f"\nDistractor types: {sample['metadata']['types']}")
         print(f"Success rate: {sum(sample['metadata']['success'])}/{len(sample['metadata']['success'])}")
+    else:
+        print("\nNo successful MCQA samples to display!")
