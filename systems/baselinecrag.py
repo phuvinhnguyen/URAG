@@ -42,7 +42,7 @@ MAX_CONTEXT_SENTENCE_LENGTH = 1000
 MAX_CONTEXT_REFERENCES_LENGTH = 4000
 
 # Batch size you wish the evaluators will use to call the `batch_generate_answer` function
-SUBMISSION_BATCH_SIZE = 8 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
+SUBMISSION_BATCH_SIZE = 1 # TUNE THIS VARIABLE depending on the number of GPUs you are requesting and the size of your model.
 
 # Transformers Parameters 
 TRANSFORMERS_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"  # TUNE THIS VARIABLE depending on your available hardware

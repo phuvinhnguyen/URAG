@@ -207,6 +207,7 @@ True Answer: {correct_answer}
 IMPORTANT:
 - Your wrong answers must not be too obvious but should be more challenging.
 - You should prioritize the information in the provided context to generate wrong answers.
+- Consider the query time context when generating answers if it's relevant.
 - Your answer must follow exactly this format so the program can read your wrong answers: your_thinking<answer>option_1<answer>option_2<answer>option_3</eos>
 - Your generated options must have similar format with the `True Answer`
 
@@ -301,7 +302,8 @@ Wrong answers:"""
             return f"Error in generation<answer>Alternative 1<answer>Alternative 2<answer>Alternative 3</eos>"
     
     def process_question(self, question: str, websites: List[str], correct_answer: str,
-                        web_contents: Optional[List[str]] = None) -> Dict:
+                        query_time: str = "", domain: str = "", question_type: str = "", 
+                        static_or_dynamic: str = "", web_contents: Optional[List[str]] = None) -> Dict:
         """
         Main function to process question and generate wrong answers
         
@@ -309,17 +311,29 @@ Wrong answers:"""
             question: Input question
             websites: List of website URLs
             correct_answer: The correct answer
+            query_time: Query timestamp
+            domain: Domain of the question
+            question_type: Type of question
+            static_or_dynamic: Whether question is static or dynamic
             web_contents: Pre-scraped web contents (optional)
             
         Returns:
             Dictionary with results
         """
         print(f"Processing question: {question[:100]}...")
+                # Create enhanced question with query time
+        enhanced_question = question
+        if query_time:
+            enhanced_question = f"Query Time: {query_time}\nQuestion: {question}"
         
         result = {
-            'question': question,
+            'question': enhanced_question if query_time else question,
             'correct_answer': correct_answer,
             'websites': websites,
+            'query_time': query_time,
+            'domain': domain,
+            'question_type': question_type,
+            'static_or_dynamic': static_or_dynamic,
             'generated_content': '',
             'model_used': '',
             'success': False,
@@ -353,20 +367,24 @@ Wrong answers:"""
         
         print(f"Found {len(relevant_chunks)} relevant chunks")
         
+        # Add query_time to context if available
+        if query_time:
+            context = f"Query Time: {query_time}\n\n{context}"
+        
         # Generate wrong answers
         generated_answer = ""
         
         # Try Gemini first if available
         if self.gemini_api_keys:
             print("Generating wrong answers with Gemini...")
-            generated_answer = self.answer_with_gemini(question, context, correct_answer)
+            generated_answer = self.answer_with_gemini(enhanced_question, context, correct_answer)
             if generated_answer:
                 result['model_used'] = f'gemini_key_{self.current_key_index}'
         
         # Fallback to local model if Gemini fails or not available
         if not generated_answer and self.use_local_model:
             print("Generating wrong answers with local model...")
-            generated_answer = self.answer_with_local_model(question, context, correct_answer)
+            generated_answer = self.answer_with_local_model(enhanced_question, context, correct_answer)
             if generated_answer:
                 result['model_used'] = 'local_model'
         
@@ -417,10 +435,21 @@ def main():
                         websites = [i['page_url'] for i in sample['search_results']]
                         correct_answer = sample['answer']
                         
+                        # Extract additional fields from the sample
+                        query_time = sample.get('query_time', '')
+                        domain = sample.get('domain', '')
+                        question_type = sample.get('question_type', '')
+                        static_or_dynamic = sample.get('static_or_dynamic', '')
+                        
                         print(f"\n{'='*20} Processing sample {line_num + 1} {'='*20}")
+                        print(f"Domain: {domain}, Type: {question_type}, Static/Dynamic: {static_or_dynamic}")
+                        print(f"Query Time: {query_time}")
                         
                         # Process question
-                        result = rag_system.process_question(question, websites, correct_answer)
+                        result = rag_system.process_question(
+                            question, websites, correct_answer, 
+                            query_time, domain, question_type, static_or_dynamic
+                        )
                         
                         # Save result
                         save_result(result, output_file)
@@ -430,6 +459,7 @@ def main():
                             success_count += 1
                             
                         print(f"Result: {'SUCCESS' if result['success'] else 'FAILED'}")
+                        print(f"Domain: {result.get('domain', 'N/A')}, Type: {result.get('question_type', 'N/A')}")
                         if result.get('generated_content'):
                             print(f"Generated: {result['generated_content'][:200]}...")
                         
@@ -451,6 +481,10 @@ def main():
                             'question': 'Parse error',
                             'correct_answer': '',
                             'websites': [],
+                            'query_time': '',
+                            'domain': '',
+                            'question_type': '',
+                            'static_or_dynamic': '',
                             'generated_content': '',
                             'model_used': '',
                             'success': False,
