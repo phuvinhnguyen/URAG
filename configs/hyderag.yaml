@@ -1,11 +1,9 @@
 system:
-  name: fusionrag
+  name: hyderag
   alpha: 0.1
   args:
     model_name: Qwen/Qwen3-4B
-    num_queries: 3
-    k: 60
     # device is auto-detected if not specified
 
 dataset: datasets/multinewsum_mcqa.json
-output: results/fusionrag_qwen3_4b
+output: results/hyderag_qwen3_4b

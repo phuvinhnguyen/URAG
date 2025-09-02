@@ -1,11 +1,11 @@
 system:
-  name: fusionrag
+  name: hydellm
   alpha: 0.1
   args:
     model_name: Qwen/Qwen3-4B
-    num_queries: 3
-    k: 60
+    num_samples: 20
+    technique: hyde
     # device is auto-detected if not specified
 
 dataset: datasets/multinewsum_mcqa.json
-output: results/fusionrag_qwen3_4b
+output: results/hydellm_qwen3_4b

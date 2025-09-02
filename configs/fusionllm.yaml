@@ -3,7 +3,10 @@ system:
   alpha: 0.1
   args:
     model_name: Qwen/Qwen3-4B
+    num_samples: 20
+    num_queries: 3
+    technique: fusion
     # device is auto-detected if not specified
 
-dataset: datasets/crag_task_1_and_2_example.json
+dataset: datasets/multinewsum_mcqa.json
 output: results/fusionllm_qwen3_4b
