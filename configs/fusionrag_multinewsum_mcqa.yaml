@@ -1,0 +1,9 @@
+system:
+  name: fusionrag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B
+
+dataset: datasets/multinewsum_mcqa.json
+output: results/fusionrag_qwen3_4b_multinewsum_mcqa
+
