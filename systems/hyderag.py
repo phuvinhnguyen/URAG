@@ -21,10 +21,10 @@ class HyDERAGSystem(AbstractRAGSystem):
     4. Generate final answer using retrieved context
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "auto", **kwargs):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, **kwargs):
         """Initialize the HyDE RAG system with an LLM and enhanced retrieval."""
         # Initialize the HyDE LLM component
-        self.llm_system = HyDELLMSystem(model_name, device, technique='rag')
+        self.llm_system = HyDELLMSystem(model_name, device, num_samples=num_samples, technique='rag')
     
     def get_batch_size(self) -> int:
         """Return batch size."""

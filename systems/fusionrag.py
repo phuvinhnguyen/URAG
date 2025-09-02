@@ -25,10 +25,10 @@ class FusionRAGSystem(AbstractRAGSystem):
     4. Generate final answer using the top-ranked fused documents
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_queries: int = 3, k: int = 60, **kwargs):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, num_queries: int = 3, k: int = 60, **kwargs):
         """Initialize the Fusion RAG system with an LLM and enhanced retrieval."""
         # Initialize the Fusion LLM component
-        self.llm_system = FusionLLMSystem(model_name, device, num_queries=num_queries, technique='fusion')
+        self.llm_system = FusionLLMSystem(model_name, device, num_samples=num_samples, num_queries=num_queries, technique='fusion')
         self.k = k  # RRF parameter (higher values reduce the impact of high-ranked documents)
         
     def get_batch_size(self) -> int:
