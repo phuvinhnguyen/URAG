@@ -7,6 +7,15 @@ wget https://www.kaggle.com/datasets/curiouskat/mcqa-crag
 unzip mcqa-crag.zip
 ```
 
+## MCQA CRAG tiny
+Downloaded link: https://www.kaggle.com/datasets/curiouskat/mcqa-crag
+local path: datasets/crag_mcqa_task_1_and_2_tiny.json
+
+```bash
+wget https://www.kaggle.com/datasets/curiouskat/mcqa-crag
+unzip mcqa-crag.zip
+```
+
 ## Multinew Sum
 local path: datasets/multinewsum_mcqa.json
 
