@@ -5,6 +5,7 @@ from loguru import logger
 from utils.clean import clean_web_content
 from utils.vectordb import QdrantVectorDB
 from utils.get_html import get_web_content
+from utils.storage import get_storage
 
 
 class SimpleRAGSystem(AbstractRAGSystem):
@@ -26,19 +27,32 @@ class SimpleRAGSystem(AbstractRAGSystem):
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process sample with RAG enhancement."""
         # Retrieve relevant context
+        config = {
+            "embedding_model": "sentence_transformers",
+            "chunk_size": 30,
+            "overlap": 10
+        }
         num_retrieved_docs = 10
+
         question = sample.get('question', '')
-        documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
-                     doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
-                     for doc in sample.get('search_results', [])]
-        
-        database = QdrantVectorDB(
-            texts=documents,
-            embedding_model="sentence_transformers",
-            chunk_size=30,
-            overlap=10
-        )
-                
+        if sample.get('search_results', []) != [] and \
+            sample['search_results'][0].get('persistent_storage', None):
+            if not hasattr(self, 'database'):
+                self.database = QdrantVectorDB(
+                    texts=get_storage(sample['search_results'][0]['persistent_storage']),
+                    **config
+                )
+            database = self.database
+        else:
+            documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
+                        doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
+                        for doc in sample.get('search_results', [])]
+
+            database = QdrantVectorDB(
+                texts=documents,
+                **config
+            )
+
         retrieved_docs = database.search(question, method="hybrid", k=num_retrieved_docs)
 
         # clean and remove database from memory to save RAM as much as possible

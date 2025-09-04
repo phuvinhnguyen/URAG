@@ -7,6 +7,7 @@ import re
 from utils.vectordb import QdrantVectorDB  # pyright: ignore[reportMissingImports]
 from utils.clean import clean_web_content  # pyright: ignore[reportMissingImports]
 from utils.get_html import get_web_content  # pyright: ignore[reportMissingImports]
+from utils.get_storage import get_storage  # pyright: ignore[reportMissingImports]
 
 
 
@@ -32,18 +33,31 @@ class HyDERAGSystem(AbstractRAGSystem):
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process sample with HyDE RAG enhancement."""
+        config = {
+            "embedding_model": "sentence_transformers",
+            "chunk_size": 30,
+            "overlap": 10
+        }
         num_retrieved_docs = 10
+
         question = sample.get('question', '')
-        documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
-                     doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
-                     for doc in sample.get('search_results', [])]
-        
-        database = QdrantVectorDB(
-            texts=documents,
-            embedding_model="sentence_transformers",
-            chunk_size=30,
-            overlap=10
-        )
+        if sample.get('search_results', []) != [] and \
+            sample['search_results'][0].get('persistent_storage', None):
+            if not hasattr(self, 'database'):
+                self.database = QdrantVectorDB(
+                    texts=get_storage(sample['search_results'][0]['persistent_storage']),
+                    **config
+                )
+            database = self.database
+        else:
+            documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
+                        doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
+                        for doc in sample.get('search_results', [])]
+            
+            database = QdrantVectorDB(
+                texts=documents,
+                **config
+            )
         
         # Step 1: Generate hypothetical document using HyDE LLM
         hypothetical_doc = self.llm_system.generate_hypothetical_document(question)

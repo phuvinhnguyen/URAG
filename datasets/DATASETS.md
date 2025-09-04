@@ -1,0 +1,42 @@
+## MCQA CRAG dataset
+Downloaded link: https://www.kaggle.com/datasets/curiouskat/mcqa-crag
+local path: datasets/crag_mcqa_task_1_and_2.json
+
+```bash
+wget https://www.kaggle.com/datasets/curiouskat/mcqa-crag
+unzip mcqa-crag.zip
+```
+
+## Multinew Sum
+local path: datasets/multinewsum_mcqa.json
+
+## Scifact
+link: https://huggingface.co/datasets/allenai/scifact
+local path: datasets/scifact.json
+
+## Healthver
+link: https://huggingface.co/datasets/dwadden/healthver_entailment
+local path: datasets/healthver.json
+
+## ODEX
+link: https://huggingface.co/datasets/code-rag-bench/odex/
+local path: datasets/odex.json
+find similar answers
+
+## DialFact
+link: https://github.com/salesforce/DialFact
+Download link: https://www.kaggle.com/datasets/suzhentxt/dialfact-mcqa
+local path: datasets/dialfact.json
+```bash
+wget https://www.kaggle.com/datasets/suzhentxt/dialfact-mcqa
+unzip dialfact-mcqa.zip 
+```
+
+## lca-commit-message-generation
+link: https://huggingface.co/datasets/JetBrains-Research/lca-commit-message-generation
+local path: datasets/commit_message_qa.json
+
+## Olympiad bench + MathPile docs
+link: https://huggingface.co/datasets/GAIR/MathPile
+link: huggingface.co/datasets/Hothan/OlympiadBench
+local path: datasets/OlympiadBench.json
