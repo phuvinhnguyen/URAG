@@ -1,6 +1,6 @@
 from systems.abstract import AbstractRAGSystem
 from systems.simplellm import SimpleLLMSystem
-from typing import Dict, Any, List
+from typing import Dict, Any
 from loguru import logger
 from utils.clean import clean_web_content
 from utils.vectordb import QdrantVectorDB

@@ -8,3 +8,6 @@ graphrag/
 
 *.ipynb
 __pycache__/
+
+logs/
+.run_status/

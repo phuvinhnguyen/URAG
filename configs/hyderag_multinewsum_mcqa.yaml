@@ -5,5 +5,5 @@ system:
     model_name: meta-llama/Llama-3.1-8B
 
 dataset: datasets/multinewsum_mcqa.json
-output: results/hyderag_qwen3_4b_multinewsum_mcqa
+output: results/hyderag_llama_3.1_8b_multinewsum_mcqa
 

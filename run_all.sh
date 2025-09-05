@@ -2,6 +2,7 @@
 set -euo pipefail
 
 # Run all experiments in URAG/configs with concurrency, skipping running or finished ones.
+# Finished experiments are detected by checking if their output directory exists and contains files.
 # Usage:
 #   ./URAG/run_all.sh [CONFIG_DIR] [MAX_JOBS]
 # Defaults:
@@ -35,9 +36,22 @@ lock_file() {
   echo "$STATUS_DIR/$(safe_name "$cfg").lock"
 }
 
-done_file() {
+get_output_dir() {
   local cfg="$1"
-  echo "$STATUS_DIR/$(safe_name "$cfg").done"
+  # Extract output directory from YAML config
+  if command -v yq >/dev/null 2>&1; then
+    yq eval '.output' "$cfg" 2>/dev/null || echo "results"
+  else
+    # Fallback: grep for output field in YAML
+    grep '^output:' "$cfg" 2>/dev/null | sed 's/^output: *//' | tr -d '"' || echo "results"
+  fi
+}
+
+is_experiment_done() {
+  local cfg="$1"
+  local output_dir="$(get_output_dir "$cfg")"
+  # Check if output directory exists and contains results
+  [[ -d "$output_dir" ]] && [[ -n "$(find "$output_dir" -mindepth 1 -print -quit 2>/dev/null)" ]]
 }
 
 is_pid_running() {
@@ -71,13 +85,12 @@ ensure_slot() {
 run_one() {
   local cfg="$1"
   local lock="$(lock_file "$cfg")"
-  local donef="$(done_file "$cfg")"
   local base="$(basename "$cfg" .yaml)"
   local log="$LOG_DIR/run_${base}.log"
 
-  # Skip finished
-  if [[ -f "$donef" ]]; then
-    echo "[SKIP-DONE] $cfg"
+  # Skip finished experiments (check for output directory)
+  if is_experiment_done "$cfg"; then
+    echo "[SKIP-DONE] $cfg (output directory exists)"
     return 0
   fi
 
@@ -100,7 +113,7 @@ run_one() {
     return 0
   fi
 
-  # Launch wrapper to ensure lock/done management
+  # Launch wrapper to ensure lock management
   echo "[LAUNCH] $cfg"
   bash -c "\
     set -euo pipefail; \
@@ -108,7 +121,6 @@ run_one() {
     (
       python '$CLI_PY' --config '$cfg' 2>&1 | tee '$log'
     ); \
-    touch '$donef'; \
     rm -f '$lock' \
   " &
 }

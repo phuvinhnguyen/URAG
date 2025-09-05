@@ -1,0 +1,8 @@
+system:
+  name: fusionrag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B
+
+dataset: datasets/commit_message_qa.json
+output: results/fusionrag_llama_3.1_8b_commit_message_qa
