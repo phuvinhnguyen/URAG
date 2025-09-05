@@ -8,7 +8,9 @@ import math
 from utils.clean import clean_web_content  # pyright: ignore[reportMissingImports]
 from utils.get_html import get_web_content  # pyright: ignore[reportMissingImports]
 from utils.vectordb import QdrantVectorDB  # pyright: ignore[reportMissingImports]
+from utils.get_storage import get_storage  # pyright: ignore[reportMissingImports]
 import hashlib
+
 
 def hash_string(s):
     """Hash a string using SHA-256"""
@@ -25,10 +27,10 @@ class FusionRAGSystem(AbstractRAGSystem):
     4. Generate final answer using the top-ranked fused documents
     """
     
-    def __init__(self, model_name: str = "meta-llama/Llama-2-7b-chat-hf", device: str = "auto", num_queries: int = 3, k: int = 60, **kwargs):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, num_queries: int = 3, k: int = 60, **kwargs):
         """Initialize the Fusion RAG system with an LLM and enhanced retrieval."""
         # Initialize the Fusion LLM component
-        self.llm_system = FusionLLMSystem(model_name, device, num_queries=num_queries, technique='fusion')
+        self.llm_system = FusionLLMSystem(model_name, device, num_samples=num_samples, num_queries=num_queries, technique='fusion')
         self.k = k  # RRF parameter (higher values reduce the impact of high-ranked documents)
         
     def get_batch_size(self) -> int:
@@ -62,23 +64,35 @@ class FusionRAGSystem(AbstractRAGSystem):
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         """Process sample with Fusion RAG enhancement."""
+        config = {
+            "embedding_model": "sentence_transformers",
+            "chunk_size": 30,
+            "overlap": 10
+        }
         num_retrieved_docs = 10
 
         question = sample.get('question', '')
-        documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
-                     doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
-                     for doc in sample.get('search_results', [])]
+
+        if sample.get('search_results', []) != [] and \
+            sample['search_results'][0].get('persistent_storage', None):
+            if not hasattr(self, 'database'):
+                self.database = QdrantVectorDB(
+                    texts=get_storage(sample['search_results'][0]['persistent_storage']),
+                    **config
+                )
+            database = self.database
+        else:   
+            documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
+                        doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
+                        for doc in sample.get('search_results', [])]
+            database = QdrantVectorDB(
+                texts=documents,
+                **config
+            )
         
         # Step 1: Generate diverse queries using Fusion LLM
         diverse_queries = self.llm_system.generate_diverse_queries(question)
 
-        database = QdrantVectorDB(
-            texts=documents,
-            embedding_model="sentence_transformers",
-            chunk_size=30,
-            overlap=10
-        )
-        
         retrieved_docs = [sorted(database.search(query, method="hybrid", k=num_retrieved_docs), key=lambda x: x['score'], reverse=True) for query in diverse_queries]
         
         retrieved_docs = self._apply_reciprocal_rank_fusion(retrieved_docs)[:num_retrieved_docs]

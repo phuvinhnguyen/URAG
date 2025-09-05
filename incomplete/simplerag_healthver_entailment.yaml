@@ -1,0 +1,9 @@
+system:
+  name: simplerag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B
+
+dataset: datasets/healthver_entailment.json
+output: results/simplerag_qwen3_4b_healthver_entailment
+

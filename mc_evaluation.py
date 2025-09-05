@@ -61,8 +61,12 @@ class SystemEvaluator:
         """
         logger.info(f"Evaluating {len(samples)} samples")
         
+        raw_results = []
         # Process samples through the RAG system
-        raw_results = self.rag_system.batch_process_samples(samples)
+        for index in range(0, len(samples), self.rag_system.get_batch_size()):
+            batch = samples[index:index+self.rag_system.get_batch_size()]
+            raw_result = self.rag_system.batch_process_samples(batch)
+            raw_results.extend(raw_result)
         
         # Ensure all results have the required format for conformal prediction
         processed_results = []
