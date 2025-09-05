@@ -7,7 +7,7 @@ curl -L -o ./mcqa-crag.zip https://www.kaggle.com/api/v1/datasets/download/curio
 unzip mcqa-crag.zip
 ```
 
-## MCQA CRAG tiny
+## MCQA CRAG tiny v
 Downloaded link: https://www.kaggle.com/datasets/curiouskat/mcqa-crag
 local path: datasets/crag_mcqa_task_1_and_2_tiny.json
 
@@ -16,7 +16,7 @@ curl -L -o ./mcqa-crag.zip https://www.kaggle.com/api/v1/datasets/download/curio
 unzip mcqa-crag.zip
 ```
 
-## Multinew Sum
+## Multinew Sum v
 local path: datasets/multinewsum_mcqa.json
 
 ## Scifact
@@ -27,7 +27,7 @@ local path: datasets/scifact.json
 link: https://huggingface.co/datasets/dwadden/healthver_entailment
 local path: datasets/healthver.json
 
-## ODEX
+## ODEX v
 link: https://huggingface.co/datasets/code-rag-bench/odex/
 local path: datasets/odex.json
 find similar answers
@@ -41,7 +41,7 @@ curl -L -o ./dialfact-mcqa.zip https://www.kaggle.com/api/v1/datasets/download/s
 unzip dialfact-mcqa.zip 
 ```
 
-## lca-commit-message-generation
+## lca-commit-message-generation v
 link: https://huggingface.co/datasets/JetBrains-Research/lca-commit-message-generation
 local path: datasets/commit_message_qa.json
 
