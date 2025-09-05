@@ -5,5 +5,5 @@ system:
     model_name: meta-llama/Llama-3.1-8B
 
 dataset: datasets/crag_task_1_and_2_tiny.json
-output: results/simplerag_qwen3_4b_crag_task_1_and_2_tiny
+output: results/simplerag_llama_3.1_8b_crag_task_1_and_2_tiny
 

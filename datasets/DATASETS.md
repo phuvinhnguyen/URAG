@@ -3,7 +3,7 @@ Downloaded link: https://www.kaggle.com/datasets/curiouskat/mcqa-crag
 local path: datasets/crag_mcqa_task_1_and_2.json
 
 ```bash
-wget https://www.kaggle.com/datasets/curiouskat/mcqa-crag
+curl -L -o ./mcqa-crag.zip https://www.kaggle.com/api/v1/datasets/download/curiouskat/mcqa-crag
 unzip mcqa-crag.zip
 ```
 
@@ -12,7 +12,7 @@ Downloaded link: https://www.kaggle.com/datasets/curiouskat/mcqa-crag
 local path: datasets/crag_mcqa_task_1_and_2_tiny.json
 
 ```bash
-wget https://www.kaggle.com/datasets/curiouskat/mcqa-crag
+curl -L -o ./mcqa-crag.zip https://www.kaggle.com/api/v1/datasets/download/curiouskat/mcqa-crag
 unzip mcqa-crag.zip
 ```
 
@@ -34,10 +34,10 @@ find similar answers
 
 ## DialFact
 link: https://github.com/salesforce/DialFact
-Download link: https://www.kaggle.com/datasets/suzhentxt/dialfact-mcqa
+Download link: https://www.kaggle.com/api/v1/datasets/download/suzhentxt/dialfact-mcqa-ver2
 local path: datasets/dialfact.json
 ```bash
-wget https://www.kaggle.com/datasets/suzhentxt/dialfact-mcqa
+curl -L -o ./dialfact-mcqa.zip https://www.kaggle.com/api/v1/datasets/download/suzhentxt/dialfact-mcqa-ver2
 unzip dialfact-mcqa.zip 
 ```
 
