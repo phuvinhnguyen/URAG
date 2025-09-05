@@ -22,8 +22,8 @@ try:
     )
     GRAPHRAG_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"GraphRAG library not fully available: {e}")
     GRAPHRAG_AVAILABLE = False
+    # Let the error propagate during system instantiation
 
 
 class GraphRAGSystem(AbstractRAGSystem):
@@ -207,11 +207,62 @@ class GraphRAGSystem(AbstractRAGSystem):
             logger.error(f"GraphRAG search failed: {e}")
             return {"response": "", "context": ""}
     
+    def _extract_relevant_documents(self, search_result: Dict[str, Any]) -> List[str]:
+        """Extract relevant document texts from GraphRAG search context."""
+        documents = []
+        
+        # The GraphRAG search returns context with various structures
+        search_context = search_result.get("context", {})
+        
+        # Try to extract text units or documents from the search context
+        if isinstance(search_context, dict):
+            # Look for text content in various possible keys
+            for key in ['selected_entities', 'reports', 'sources', 'text_units', 'documents']:
+                if key in search_context:
+                    items = search_context[key]
+                    if isinstance(items, list):
+                        for item in items:
+                            if isinstance(item, dict):
+                                # Extract text from various possible text fields
+                                text_content = (
+                                    item.get('text', '') or 
+                                    item.get('content', '') or 
+                                    item.get('description', '') or
+                                    item.get('summary', '')
+                                )
+                                if text_content and len(text_content.strip()) > 50:
+                                    documents.append(text_content.strip())
+                            elif isinstance(item, str) and len(item.strip()) > 50:
+                                documents.append(item.strip())
+        
+        # If we have text_units_df loaded, also get relevant text units based on entities/relationships
+        if self.text_units_df is not None and hasattr(search_result.get("context"), 'get'):
+            relevant_entities = search_result["context"].get('selected_entities', [])
+            if relevant_entities:
+                # Find text units that contain mentions of the relevant entities
+                for _, text_unit in self.text_units_df.iterrows():
+                    text_content = text_unit.get('text', '')
+                    if text_content and any(entity.lower() in text_content.lower() for entity in relevant_entities if isinstance(entity, str)):
+                        if len(text_content.strip()) > 50 and text_content not in documents:
+                            documents.append(text_content.strip())
+        
+        # Limit to top 5 most relevant documents to avoid token overflow
+        return documents[:5]
+    
     def _build_enhanced_context(self, search_result: Dict[str, Any], sample: Dict[str, Any]) -> str:
-        """Build enhanced context combining GraphRAG search results with sample data."""
+        """Build enhanced context combining GraphRAG search results with actual retrieved documents."""
         context_parts = []
         
-        # Add GraphRAG search response as context
+        # Extract and include actual retrieved documents (PRIMARY RAG CONTEXT)
+        retrieved_docs = self._extract_relevant_documents(search_result)
+        if retrieved_docs:
+            context_parts.append("Retrieved Documents:")
+            for i, doc in enumerate(retrieved_docs, 1):
+                context_parts.append(f"Document {i}:")
+                context_parts.append(doc)
+                context_parts.append("")  # Empty line for separation
+        
+        # Add GraphRAG analysis as supplementary context
         if search_result.get("response"):
             context_parts.append("GraphRAG Analysis:")
             context_parts.append(search_result["response"])
@@ -221,15 +272,6 @@ class GraphRAGSystem(AbstractRAGSystem):
         if existing_context:
             context_parts.append("\nAdditional Context:")
             context_parts.append(existing_context)
-        
-        # Add search metadata if available
-        if isinstance(search_result.get("context"), dict):
-            context_parts.append("\nSearch Metadata:")
-            for key, value in search_result["context"].items():
-                if isinstance(value, (list, pd.DataFrame)) and hasattr(value, '__len__'):
-                    context_parts.append(f"- {key}: {len(value)} items")
-                else:
-                    context_parts.append(f"- {key}: {str(value)[:100]}...")
         
         return "\n\n".join(context_parts) if context_parts else ""
     

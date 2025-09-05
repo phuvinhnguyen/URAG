@@ -172,11 +172,25 @@ class GraphLLMSystem(AbstractRAGSystem):
         question = sample.get('question', '')
         technique = self.technique
         
+        # Get existing context (including retrieved documents from GraphRAG)
+        existing_context = sample.get('context', '')
+        
         # Build graph-based context
         graph_context = self._build_graph_context(question)
         
-        if technique == 'graphrag' and graph_context:
-            prompt = f"""Based on the following knowledge graph context, please answer the question.
+        if technique == 'graphrag':
+            # If we have retrieved documents context, prioritize it
+            if existing_context:
+                prompt = f"""Based on the following context and knowledge, please answer the question.
+
+Context:
+{existing_context}
+
+Question: {question}
+
+Please provide your final answer in the format <answer>X</answer> where X is your answer, using information from the provided context."""
+            elif graph_context:
+                prompt = f"""Based on the following knowledge graph context, please answer the question.
 
 Knowledge Graph Context:
 {graph_context}
@@ -184,6 +198,9 @@ Knowledge Graph Context:
 Question: {question}
 
 Please provide your final answer in the format <answer>X</answer> where X is your answer, incorporating the relevant knowledge from the graph context."""
+            else:
+                # Fallback to direct prompting
+                prompt = f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
         elif technique == 'cot':
             return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your answer."
         else:
