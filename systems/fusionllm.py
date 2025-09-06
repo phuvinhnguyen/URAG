@@ -24,44 +24,130 @@ class FusionLLMSystem(AbstractRAGSystem):
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
-            
-        self.num_samples = num_samples
-        self.num_queries = num_queries  # Number of diverse queries to generate
+
         self.technique = technique
-        logger.info(f"Loading Fusion model {model_name} on {self.device}")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        self.model.to(self.device)
-        self.model.eval()
         
         # Add pad token if not present
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+            
+        self.num_samples = num_samples
+        self.num_queries = num_queries  # Number of diverse queries to generate
+        
+        # Try to load the requested model, with fallback
+        self.model_name = self._load_model_with_fallback(model_name)
+        
+        logger.info(f"Successfully loaded Fusion model: {self.model_name}")
+    
+    def _load_model_with_fallback(self, preferred_model: str) -> str:
+        """Load model with automatic fallback if preferred model fails."""
+        # List of open-source models to try in order of preference
+        fallback_models = [
+            preferred_model,
+            "mistralai/Mistral-7B-Instruct-v0.1",
+            "tiiuae/falcon-7b-instruct",
+            "mosaicml/mpt-7b-chat",
+            "microsoft/DialoGPT-medium",
+            "microsoft/DialoGPT-small", 
+            "gpt2-medium",
+            "gpt2",
+            "distilgpt2"
+        ]
+        
+        for model_name in fallback_models:
+            try:
+                logger.info(f"Attempting to load model: {model_name}")
+                
+                # Standard model loading approach for all models
+                self.tokenizer = AutoTokenizer.from_pretrained(
+                    model_name,
+                    trust_remote_code=True
+                )
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    torch_dtype=torch.float16 if self.device.type == "cuda" else torch.float32,
+                    device_map="auto" if self.device.type == "cuda" else None,
+                    trust_remote_code=True
+                )
+                
+                if self.device.type != "cuda" or "device_map" not in locals():
+                    self.model.to(self.device)
+                
+                self.model.eval()
+                
+                # Add pad token if not present
+                if self.tokenizer.pad_token is None:
+                    self.tokenizer.pad_token = self.tokenizer.eos_token
+                
+                if model_name != preferred_model:
+                    logger.warning(f"Preferred model '{preferred_model}' failed, using fallback: '{model_name}'")
+                
+                return model_name
+                
+            except Exception as e:
+                logger.warning(f"Failed to load model '{model_name}': {str(e)}")
+                continue
+        
+        raise RuntimeError(f"Failed to load any compatible model. Last attempted: {fallback_models}")
     
     def get_batch_size(self) -> int:
         """Return batch size of 1 for this implementation."""
         return 1
     
+    def _create_unified_prompt(self, system_message: str, user_message: str) -> str:
+        """Create a unified prompt format that works across different model types."""
+        # Detect model type and format accordingly
+        model_lower = self.model_name.lower()
+        
+        # Llama-style models (Llama, Code Llama, etc.)
+        if "llama" in model_lower:
+            return f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n{user_message} [/INST]\n\n"
+        
+        # Mistral models
+        elif "mistral" in model_lower:
+            return f"<s>[INST] {system_message}\n\n{user_message} [/INST]"
+        
+        # Falcon models
+        elif "falcon" in model_lower:
+            return f"User: {system_message}\n\n{user_message}\n\nAssistant:"
+        
+        # MPT models
+        elif "mpt" in model_lower:
+            return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
+        
+        # DialoGPT and GPT-style models
+        elif any(x in model_lower for x in ["dialogpt", "gpt"]):
+            return f"{system_message}\n\n{user_message}\n\nResponse:"
+        
+        # Default fallback format
+        else:
+            return f"### Instruction:\n{system_message}\n\n### Input:\n{user_message}\n\n### Response:"
+    
     def generate_diverse_queries(self, question: str) -> List[str]:
         """Generate multiple diverse queries from the original question."""
         queries = [question]  # Include original question
         
-        # Generate diverse query prompts
-        query_prompts = [
-            f"Rephrase this question in a different way: {question}\n\nRephrased question:",
-            f"What is another way to ask about: {question}\n\nAlternative question:",
-            f"Generate a related question that might help answer: {question}\n\nRelated question:",
-            f"Create a more specific version of this question: {question}\n\nSpecific question:",
-            f"What broader question encompasses: {question}\n\nBroader question:"
+        # Generate diverse query prompts using unified format
+        query_templates = [
+            ("You are a helpful assistant that rephrases questions in different ways while maintaining the same meaning.", 
+             f"Rephrase this question in a different way while keeping the same meaning:\n\nOriginal question: {question}\n\nProvide only the rephrased question:"),
+            ("You are a helpful assistant that creates alternative formulations of questions.", 
+             f"What is another way to ask about the same topic as this question:\n\nOriginal question: {question}\n\nProvide only the alternative question:"),
+            ("You are a helpful assistant that generates related questions.", 
+             f"Generate a related question that might help answer this question:\n\nOriginal question: {question}\n\nProvide only the related question:")
         ]
         
-        for i, prompt in enumerate(query_prompts[:self.num_queries-1]):  # -1 because we already have original
+        for i, (system_msg, user_msg) in enumerate(query_templates[:self.num_queries-1]):  # -1 because we already have original
             try:
+                prompt = self._create_unified_prompt(system_msg, user_msg)
                 generated_query = self._generate_response(prompt, max_length=100, temperature=0.8)
                 
                 # Clean up the generated query
                 generated_query = generated_query.split('\n')[0].strip()
-                if generated_query and generated_query not in queries:
+                # Remove any leading/trailing quotes or punctuation
+                generated_query = generated_query.strip('"\'`.,!?')
+                
+                if generated_query and generated_query not in queries and len(generated_query) > 10:
                     queries.append(generated_query)
                     logger.debug(f"Generated query {i+1}: {generated_query}")
                     
@@ -86,34 +172,59 @@ class FusionLLMSystem(AbstractRAGSystem):
                 options_text += f"{option}. {text}\n"
             options_text += "\nPlease choose one of the options A, B, C, or D."
         
+        # Get context if available
+        context = sample.get('search_results', sample.get('context', ''))
+        
+        # Generate unified prompts based on technique
         if technique == 'cot':
-            return f"Let's think step by step.\n\n{question}{options_text}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+            system_message = "You are a helpful assistant that answers multiple choice questions with step-by-step reasoning. Think through the problem carefully and provide your final answer in the format <answer>X</answer>."
+            user_message = f"Let's think step by step.\n\n{question}{options_text}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
         elif technique == 'rag' or technique == 'fusion':
-            # For Fusion, use context if available
-            context = sample.get('search_results', sample.get('context', ''))
             if context:
-                return f"Context information: {context}\n\nQuestion: {question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+                system_message = "You are a helpful assistant that answers multiple choice questions using the provided context information. Use the context to inform your answer and provide the final answer in the format <answer>X</answer>."
+                user_message = f"Context information: {context}\n\nQuestion: {question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
             else:
-                return f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+                system_message = "You are a helpful assistant that answers multiple choice questions. Provide your final answer in the format <answer>X</answer>."
+                user_message = f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
         else:
             # Direct prompting
-            return f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+            system_message = "You are a helpful assistant that answers multiple choice questions. Provide your final answer in the format <answer>X</answer>."
+            user_message = f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+        
+        return self._create_unified_prompt(system_message, user_message)
     
     def _generate_response(self, prompt: str, max_length: int = 200, temperature: float = 0.7) -> str:
         """Generate response from the LLM."""
-        inputs = self.tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=512)
+        # Adaptive input length based on model capabilities
+        model_lower = self.model_name.lower()
+        if any(x in model_lower for x in ["llama", "mistral", "falcon"]):
+            max_input_length = 2048
+        else:
+            max_input_length = 512
+            
+        inputs = self.tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=max_input_length)
         inputs = inputs.to(self.device)
         
+        # Base generation configuration
+        generation_config = {
+            "max_length": inputs.shape[1] + max_length,
+            "num_return_sequences": 1,
+            "temperature": temperature,
+            "do_sample": True,
+            "pad_token_id": self.tokenizer.eos_token_id,
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "repetition_penalty": 1.1
+        }
+        
+        # Model-specific optimizations
+        if any(x in model_lower for x in ["llama", "mistral", "falcon"]):
+            generation_config.update({
+                "top_p": 0.9,
+                "top_k": 40
+            })
+        
         with torch.no_grad():
-            outputs = self.model.generate(
-                inputs,
-                max_length=inputs.shape[1] + max_length,
-                num_return_sequences=1,
-                temperature=temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id,
-                repetition_penalty=1.1
-            )
+            outputs = self.model.generate(inputs, **generation_config)
         
         response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
         return response.strip()
@@ -127,10 +238,32 @@ class FusionLLMSystem(AbstractRAGSystem):
         return -1, -1
     
     def _extract_answer(self, response: str) -> str:
-        """Extract answer from response."""
+        """Extract answer from response with multiple patterns."""
+        # Try primary pattern first
         start_pos, end_pos = self._find_answer_positions(response)
         if start_pos != -1:
             return response[start_pos:end_pos].strip()
+        
+        # Fallback patterns for better parsing
+        patterns = [
+            r'answer.*?([ABCD])',
+            r'choice.*?([ABCD])', 
+            r'option.*?([ABCD])',
+            r'correct.*?([ABCD])',
+            r'([ABCD])\.?\s*(?:is|are|would|should)',
+            r'(?:choose|select).*?([ABCD])',
+            r'\b([ABCD])\b(?=\s*[\.\)\-\:])'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, response, re.IGNORECASE)
+            if match:
+                answer = match.group(1).upper()
+                if answer in ['A', 'B', 'C', 'D']:
+                    logger.debug(f"Extracted answer '{answer}' using pattern: {pattern}")
+                    return answer
+        
+        logger.warning(f"Could not extract answer from response: {response[:100]}...")
         return "Unknown"
     
     def _generate_multiple_responses(self, prompt: str, num_samples: int) -> List[str]:
@@ -188,7 +321,7 @@ class FusionLLMSystem(AbstractRAGSystem):
         question = sample.get('question', '')
         diverse_queries = sample.get('diverse_queries', [])
         if not diverse_queries:
-            # Fallback: tạo mới nếu không có
+            # Fallback: generate new queries if not provided
             diverse_queries = self.generate_diverse_queries(sample.get('question', ''))
         # Generate prompt
         prompt = self._generate_prompt(sample)

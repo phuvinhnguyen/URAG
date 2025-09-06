@@ -1,10 +1,13 @@
 from systems.abstract import AbstractRAGSystem
-from systems.simplellm import SimpleLLMSystem
+from systems.raptorllm import RaptorLLMSystem
 from typing import Dict, Any, List
 from loguru import logger
 from pathlib import Path
 import sys
 import os
+from utils.clean import clean_web_content
+from utils.get_html import get_web_content
+from utils.vectordb import QdrantVectorDB
 
 # Ensure project root is on sys.path so nested packages resolve
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -55,8 +58,17 @@ class RaptorRAGSystem(AbstractRAGSystem):
                  reduction_dimension: int = 10):
         """Initialize the RAPTOR RAG system following SimpleLLMSystem format."""
         
-        # Initialize the LLM component (identical to SimpleLLMSystem)
-        self.llm_system = SimpleLLMSystem(model_name, device, num_samples)
+        # Initialize the RAPTOR LLM component
+        self.llm_system = RaptorLLMSystem(
+            model_name=model_name,
+            device=device,
+            num_samples=num_samples,
+            tree_save_path=str(Path(tree_save_path)),
+            num_layers=num_layers,
+            max_tokens=max_tokens,
+            threshold=threshold,
+            top_k=top_k,
+        )
         
         # RAPTOR-specific parameters
         self.tree_save_path = Path(tree_save_path)
@@ -75,49 +87,9 @@ class RaptorRAGSystem(AbstractRAGSystem):
         if RAPTOR_AVAILABLE:
             self._initialize_raptor_components()
         else:
-            logger.warning("RAPTOR not available, falling back to simple keyword retrieval")
+            logger.warning("RAPTOR not available, will use vector DB fallback")
         
-        # Knowledge base for demonstration (following SimpleRAGSystem pattern)
-        self.knowledge_base = {
-            "france": "France is a country in Europe. Its capital is Paris, which is known for landmarks like the Eiffel Tower and the Louvre Museum.",
-            "capital": "A capital city is the primary city of a country or region, usually where the government is located.",
-            "python": "Python is a popular programming language widely used in data science, web development, and automation.",
-            "programming": "Programming languages are formal languages used to communicate instructions to computers.",
-            "data science": "Data science combines statistics, programming, and domain expertise to extract insights from data.",
-            "jupiter": "Jupiter is the largest planet in our solar system, a gas giant with over 70 moons.",
-            "planet": "Planets are celestial bodies that orbit stars and have cleared their orbital neighborhood.",
-            "solar system": "Our solar system contains the Sun and eight planets, along with moons, asteroids, and comets.",
-            "shakespeare": "William Shakespeare was an English playwright and poet, considered one of the greatest writers in the English language.",
-            "literature": "Literature encompasses written works, especially those considered to have artistic or intellectual value.",
-            "pride and prejudice": "Pride and Prejudice is a novel by Jane Austen, published in 1813, exploring themes of love and social class.",
-            "gold": "Gold is a precious metal with the chemical symbol Au, valued for its rarity and resistance to corrosion.",
-            "chemical": "Chemical elements are pure substances consisting of atoms with the same number of protons.",
-            "world war": "World War II was a global conflict from 1939 to 1945, ending with the defeat of the Axis powers.",
-            "war": "Major wars have shaped world history, involving conflicts between nations or groups.",
-            "mathematics": "Mathematics is the science of numbers, quantities, and shapes, fundamental to many fields.",
-            "math": "Mathematical operations include addition, subtraction, multiplication, and division.",
-            "brazil": "Brazil is the largest country in South America, with Portuguese as its official language.",
-            "south america": "South America is a continent containing countries like Brazil, Argentina, and Colombia.",
-            "html": "HTML (Hypertext Markup Language) is the standard markup language for creating web pages.",
-            "web": "Web technologies enable the creation and display of content on the World Wide Web.",
-            "nitrogen": "Nitrogen makes up about 78% of Earth's atmosphere and is essential for life.",
-            "atmosphere": "Earth's atmosphere is composed primarily of nitrogen and oxygen, protecting life on the planet.",
-            "atom": "Atoms are the basic building blocks of matter, consisting of protons, neutrons, and electrons.",
-            "matter": "Matter is anything that has mass and takes up space, existing in various states.",
-            "portuguese": "Portuguese is a Romance language spoken by over 250 million people worldwide.",
-            "language": "Languages are systems of communication used by humans to express thoughts and ideas.",
-            "mona lisa": "The Mona Lisa is a famous painting by Leonardo da Vinci, housed in the Louvre Museum.",
-            "leonardo": "Leonardo da Vinci was an Italian Renaissance artist, inventor, and scientist.",
-            "art": "Art encompasses various forms of creative expression, including painting, sculpture, and music.",
-            "cpu": "The CPU (Central Processing Unit) is the primary component of a computer that executes instructions.",
-            "computer": "Computers are electronic devices that process data according to programmed instructions."
-        }
-        
-        # Build RAPTOR tree if available
-        if RAPTOR_AVAILABLE:
-            self._build_raptor_tree()
-        
-        logger.info(f"Initialized RaptorRAG with {len(self.knowledge_base)} knowledge entries")
+        logger.info("Initialized RaptorRAG without persistent knowledge base; expecting per-sample documents")
 
     def _initialize_raptor_components(self):
         """Initialize RAPTOR tree builder and retriever configurations."""
@@ -145,22 +117,18 @@ class RaptorRAGSystem(AbstractRAGSystem):
             self.tree_builder = None
     
     def _build_raptor_tree(self):
-        """Build the RAPTOR tree from the knowledge base."""
-        if not self.tree_builder:
-            logger.warning("Tree builder not available")
-            return
-        
+        """Deprecated: no longer builds from a static knowledge base."""
+        logger.debug("_build_raptor_tree called but static KB has been removed; skipping.")
+
+    def _retrieve_context_raptor_from_documents(self, question: str, documents: List[str]) -> List[str]:
+        """Build a temporary RAPTOR tree from provided documents and retrieve context."""
+        if not RAPTOR_AVAILABLE or not self.tree_builder:
+            return []
         try:
-            # Combine all knowledge base entries into a single text corpus
-            combined_text = "\n\n".join([f"{key}: {value}" for key, value in self.knowledge_base.items()])
-            
-            # Build the tree
-            logger.info("Building RAPTOR tree from knowledge base...")
-            self.tree = self.tree_builder.build_from_text(combined_text)
-            
-            # Configure and initialize the retriever
-            # Cap retriever layers to satisfy: retriever.num_layers <= tree.num_layers + 1
-            retriever_layers = min(self.num_layers, self.tree.num_layers + 1)
+            combined_text = "\n\n".join(documents)
+            temp_tree = self.tree_builder.build_from_text(combined_text)
+
+            retriever_layers = min(self.num_layers, temp_tree.num_layers + 1)
             retriever_config = TreeRetrieverConfig(
                 threshold=self.threshold,
                 top_k=self.top_k,
@@ -169,19 +137,34 @@ class RaptorRAGSystem(AbstractRAGSystem):
                 embedding_model=SBertEmbeddingModel(),
                 num_layers=retriever_layers
             )
-            
-            self.tree_retriever = TreeRetriever(retriever_config, self.tree)
-            
-            logger.info(f"Successfully built RAPTOR tree with {len(self.tree.all_nodes)} total nodes")
-            logger.info(f"Tree has {self.tree.num_layers} layers")
-            
-            # Save the tree
-            self._save_tree()
-            
+            temp_retriever = TreeRetriever(retriever_config, temp_tree)
+
+            context = temp_retriever.retrieve(
+                query=question,
+                top_k=self.top_k,
+                max_tokens=1000,
+                collapse_tree=True
+            )
+
+            if not context:
+                return []
+
+            context_chunks = []
+            current_chunk = ""
+            sentences = context.split('. ')
+            for sentence in sentences:
+                if len(current_chunk) + len(sentence) < 200:
+                    current_chunk += sentence + '. '
+                else:
+                    if current_chunk:
+                        context_chunks.append(current_chunk.strip())
+                    current_chunk = sentence + '. '
+            if current_chunk:
+                context_chunks.append(current_chunk.strip())
+            return context_chunks[:3]
         except Exception as e:
-            logger.error(f"Failed to build RAPTOR tree: {str(e)}")
-            self.tree = None
-            self.tree_retriever = None
+            logger.error(f"RAPTOR per-doc retrieval failed: {str(e)}")
+            return []
     
     def _save_tree(self):
         """Save the current RAPTOR tree."""
@@ -227,87 +210,54 @@ class RaptorRAGSystem(AbstractRAGSystem):
         """Return batch size (identical to SimpleLLMSystem)."""
         return 1
     
-    def _retrieve_context(self, question: str) -> List[str]:
-        """Retrieve context using RAPTOR tree traversal or fallback to simple retrieval."""
-        if self.tree_retriever:
-            return self._retrieve_context_raptor(question)
-        else:
-            return self._retrieve_context_simple(question)
-    
-    def _retrieve_context_raptor(self, question: str) -> List[str]:
-        """Retrieve context using RAPTOR tree traversal."""
-        try:
-            # Use RAPTOR tree retrieval
-            context = self.tree_retriever.retrieve(
-                query=question,
-                top_k=self.top_k,
-                max_tokens=1000,
-                collapse_tree=True  # Use collapsed tree for better coverage
-            )
-            
-            if context:
-                # Split context into reasonable chunks (following SimpleRAG pattern)
-                context_chunks = []
-                current_chunk = ""
-                sentences = context.split('. ')
-                
-                for sentence in sentences:
-                    if len(current_chunk) + len(sentence) < 200:  # Reasonable chunk size
-                        current_chunk += sentence + '. '
-                    else:
-                        if current_chunk:
-                            context_chunks.append(current_chunk.strip())
-                        current_chunk = sentence + '. '
-                
-                if current_chunk:
-                    context_chunks.append(current_chunk.strip())
-                
-                logger.debug(f"Retrieved {len(context_chunks)} context chunks using RAPTOR")
-                return context_chunks[:3]  # Return top 3 chunks like SimpleRAG
-            else:
-                logger.warning("No context retrieved from RAPTOR tree")
-                return []
-                
-        except Exception as e:
-            logger.error(f"RAPTOR retrieval failed: {str(e)}")
-            return self._retrieve_context_simple(question)
-    
-    def _retrieve_context_simple(self, question: str) -> List[str]:
-        """Simple keyword-based retrieval (identical to SimpleRAGSystem)."""
-        question_lower = question.lower()
-        retrieved_docs = []
-        
-        # Score each knowledge entry by keyword overlap
-        scored_docs = []
-        for keyword, doc in self.knowledge_base.items():
-            score = 0
-            if keyword in question_lower:
-                score = 2  # Exact keyword match
-            else:
-                # Check for partial matches
-                keyword_words = keyword.split()
-                for word in keyword_words:
-                    if word in question_lower:
-                        score += 1
-                        
-            if score > 0:
-                scored_docs.append((score, keyword, doc))
-        
-        # Sort by score and take top results
-        scored_docs.sort(key=lambda x: x[0], reverse=True)
-        
-        # Return top 3 documents
-        for score, keyword, doc in scored_docs[:3]:
-            retrieved_docs.append(doc)
-            logger.debug(f"Retrieved (score={score}): {keyword} -> {doc[:50]}...")
-        
-        return retrieved_docs
+    # Removed simple keyword-based retrieval paths; retrieval is per-sample via RAPTOR or vector DB
 
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process sample with RAPTOR RAG enhancement (following SimpleLLMSystem format exactly)."""
-        # Retrieve relevant context using RAPTOR or simple retrieval
+        """Process sample with RAPTOR RAG using per-sample documents or vector DB fallback."""
         question = sample.get('question', '')
-        retrieved_docs = self._retrieve_context(question)
+        # Build documents from search results if provided
+        documents: List[str] = []
+        try:
+            raw_docs = sample.get('search_results', [])
+            if isinstance(raw_docs, list):
+                for d in raw_docs:
+                    if isinstance(d, dict):
+                        snippet = d.get('page_snippet', '') or ''
+                        page_result = d.get('page_result')
+                        page_url = d.get('page_url')
+                        content = ''
+                        if page_result:
+                            content = clean_web_content(page_result)
+                        elif page_url:
+                            try:
+                                content = clean_web_content(get_web_content(page_url))
+                            except Exception as e:
+                                logger.debug(f"Failed to fetch page_url content: {e}")
+                                content = ''
+                        doc_text = (snippet + "\n\n" + content).strip()
+                        if doc_text:
+                            documents.append(doc_text)
+        except Exception as e:
+            logger.warning(f"Failed to build documents from search_results: {e}")
+
+        retrieved_docs: List[str] = []
+        if documents and RAPTOR_AVAILABLE and self.tree_builder:
+            retrieved_docs = self._retrieve_context_raptor_from_documents(question, documents)
+
+        # Vector DB fallback or primary when RAPTOR unavailable
+        if not retrieved_docs and documents:
+            try:
+                database = QdrantVectorDB(
+                    texts=documents,
+                    embedding_model="sentence_transformers",
+                    chunk_size=300,
+                    overlap=150
+                )
+                vector_hits = database.search(question, method="hybrid", k=3)
+                retrieved_docs = [hit['chunk'] for hit in vector_hits]
+            except Exception as e:
+                logger.warning(f"Vector DB retrieval failed: {e}")
+                retrieved_docs = []
         
         # Augment sample with retrieved context (identical to SimpleRAGSystem)
         augmented_sample = sample.copy()
@@ -329,7 +279,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
         else:
             logger.debug("No relevant documents found for retrieval")
         
-        # Process through LLM (identical to SimpleRAGSystem pattern)
+        # Process through LLM
         result = self.llm_system.process_sample(augmented_sample)
         
         # Add RAPTOR-specific information
@@ -338,25 +288,12 @@ class RaptorRAGSystem(AbstractRAGSystem):
             'num_retrieved_docs': len(retrieved_docs),
             'rag_enhanced': bool(retrieved_docs),
             'system_type': 'raptor_rag',
-            'raptor_available': RAPTOR_AVAILABLE and self.tree is not None,
-            'tree_layers': self.tree.num_layers if self.tree else 0,
-            'tree_nodes': len(self.tree.all_nodes) if self.tree else 0
+            'raptor_available': RAPTOR_AVAILABLE,
+            'tree_layers': 0,
+            'tree_nodes': 0
         })
         
         return result
-    
-    def add_documents(self, documents: List[str]):
-        """Add new documents to the knowledge base and rebuild the tree."""
-        # Add to knowledge base
-        for i, doc in enumerate(documents):
-            key = f"doc_{len(self.knowledge_base) + i}"
-            self.knowledge_base[key] = doc
-        
-        logger.info(f"Added {len(documents)} new documents. Rebuilding RAPTOR tree...")
-        
-        # Rebuild tree if RAPTOR is available
-        if RAPTOR_AVAILABLE:
-            self._build_raptor_tree()
     
     def get_tree_info(self) -> Dict[str, Any]:
         """Get information about the current RAPTOR tree."""

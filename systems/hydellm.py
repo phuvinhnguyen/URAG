@@ -41,29 +41,58 @@ class HyDELLMSystem(AbstractRAGSystem):
     
     def generate_hypothetical_document(self, question: str) -> str:
         """Generate a hypothetical document that would answer the question."""
-        # Create a prompt for generating a hypothetical document
-        prompt = f"""Write a comprehensive and informative passage that would answer the following question:
-
-Question: {question}
-
-Answer: """
+        # Unified prompt format that works well across different models
+        prompt = self._create_unified_prompt(
+            system_message="You are a helpful assistant that writes comprehensive and informative passages to answer questions.",
+            user_message=f"Write a detailed, factual passage that would answer the following question:\n\nQuestion: {question}\n\nProvide a comprehensive answer with relevant facts and information."
+        )
         
-        inputs = self.tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=512)
+        inputs = self.tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=1024)
         inputs = inputs.to(self.device)
         
         with torch.no_grad():
             outputs = self.model.generate(
                 inputs,
-                max_length=inputs.shape[1] + 150,  # Generate longer hypothetical document
+                max_length=inputs.shape[1] + 200,  # Generate longer hypothetical document
                 num_return_sequences=1,
                 temperature=0.7,
                 do_sample=True,
                 pad_token_id=self.tokenizer.eos_token_id,
-                repetition_penalty=1.1
+                repetition_penalty=1.1,
+                eos_token_id=self.tokenizer.eos_token_id
             )
         
         hypothetical_doc = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
         return hypothetical_doc.strip()
+    
+    def _create_unified_prompt(self, system_message: str, user_message: str) -> str:
+        """Create a unified prompt format that works across different model types."""
+        # Detect model type and format accordingly
+        model_lower = self.model_name.lower()
+        
+        # Llama-style models (Llama, Code Llama, etc.)
+        if "llama" in model_lower:
+            return f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n{user_message} [/INST]\n\n"
+        
+        # Mistral models
+        elif "mistral" in model_lower:
+            return f"<s>[INST] {system_message}\n\n{user_message} [/INST]"
+        
+        # Falcon models
+        elif "falcon" in model_lower:
+            return f"User: {system_message}\n\n{user_message}\n\nAssistant:"
+        
+        # MPT models
+        elif "mpt" in model_lower:
+            return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
+        
+        # DialoGPT and GPT-style models
+        elif any(x in model_lower for x in ["dialogpt", "gpt"]):
+            return f"{system_message}\n\n{user_message}\n\nResponse:"
+        
+        # Default fallback format
+        else:
+            return f"### Instruction:\n{system_message}\n\n### Input:\n{user_message}\n\n### Response:"
     
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         """Generate prompt based on sample technique."""
@@ -79,33 +108,59 @@ Answer: """
                 options_text += f"{option}. {text}\n"
             options_text += "\nPlease choose one of the options A, B, C, or D."
         
+        # Get context if available
+        context = sample.get('search_results', sample.get('context', ''))
+        
+        # Generate unified prompts based on technique
         if technique == 'cot':
-            return f"Let's think step by step.\n\n{question}{options_text}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+            system_message = "You are a helpful assistant that answers multiple choice questions with step-by-step reasoning. Think through the problem carefully and provide your final answer in the format <answer>X</answer>."
+            user_message = f"Let's think step by step.\n\n{question}{options_text}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
         elif technique == 'rag' or technique == 'hyde':
-            # For HyDE, use context if available
-            context = sample.get('search_results', sample.get('context', ''))
             if context:
-                return f"Context information: {context}\n\nQuestion: {question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+                system_message = "You are a helpful assistant that answers multiple choice questions using the provided context information. Use the context to inform your answer and provide the final answer in the format <answer>X</answer>."
+                user_message = f"Context information: {context}\n\nQuestion: {question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
             else:
-                return f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+                system_message = "You are a helpful assistant that answers multiple choice questions. Provide your final answer in the format <answer>X</answer>."
+                user_message = f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
         else:
             # Direct prompting
-            return f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+            system_message = "You are a helpful assistant that answers multiple choice questions. Provide your final answer in the format <answer>X</answer>."
+            user_message = f"{question}{options_text}\n\nPlease provide your final answer in the format <answer>X</answer> where X is one of A, B, C, or D."
+        
+        return self._create_unified_prompt(system_message, user_message)
     
     def _generate_response(self, prompt: str, max_length: int = 200, temperature: float = 0.7) -> str:
         """Generate response from the LLM."""
-        inputs = self.tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=512)
+        # Adaptive input length based on model capabilities
+        model_lower = self.model_name.lower()
+        if any(x in model_lower for x in ["llama", "mistral", "falcon"]):
+            max_input_length = 2048
+        else:
+            max_input_length = 512
+            
+        inputs = self.tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=max_input_length)
         inputs = inputs.to(self.device)
         
+        # Base generation configuration
+        generation_config = {
+            "max_length": inputs.shape[1] + max_length,
+            "num_return_sequences": 1,
+            "temperature": temperature,
+            "do_sample": True,
+            "pad_token_id": self.tokenizer.eos_token_id,
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "repetition_penalty": 1.1
+        }
+        
+        # Model-specific optimizations
+        if any(x in model_lower for x in ["llama", "mistral", "falcon"]):
+            generation_config.update({
+                "top_p": 0.9,
+                "top_k": 40
+            })
+        
         with torch.no_grad():
-            outputs = self.model.generate(
-                inputs,
-                max_length=inputs.shape[1] + max_length,
-                num_return_sequences=1,
-                temperature=temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id
-            )
+            outputs = self.model.generate(inputs, **generation_config)
         
         response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
         return response.strip()
@@ -119,10 +174,32 @@ Answer: """
         return -1, -1
     
     def _extract_answer(self, response: str) -> str:
-        """Extract answer from response."""
+        """Extract answer from response with multiple patterns."""
+        # Try primary pattern first
         start_pos, end_pos = self._find_answer_positions(response)
         if start_pos != -1:
             return response[start_pos:end_pos].strip()
+        
+        # Fallback patterns for better parsing
+        patterns = [
+            r'answer.*?([ABCD])',
+            r'choice.*?([ABCD])', 
+            r'option.*?([ABCD])',
+            r'correct.*?([ABCD])',
+            r'([ABCD])\.?\s*(?:is|are|would|should)',
+            r'(?:choose|select).*?([ABCD])',
+            r'\b([ABCD])\b(?=\s*[\.\)\-\:])'
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, response, re.IGNORECASE)
+            if match:
+                answer = match.group(1).upper()
+                if answer in ['A', 'B', 'C', 'D']:
+                    logger.debug(f"Extracted answer '{answer}' using pattern: {pattern}")
+                    return answer
+        
+        logger.warning(f"Could not extract answer from response: {response[:100]}...")
         return "Unknown"
     
     def _generate_multiple_responses(self, prompt: str, num_samples: int) -> List[str]:

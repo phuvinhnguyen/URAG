@@ -96,6 +96,10 @@ __all__ = [
     'AbstractRAGSystem',
     'SimpleLLMSystem',
     'SimpleRAGSystem',
+    'RaptorLLMSystem',
+    'RaptorRAGSystem',
+    'GraphLLMSystem',
+    'GraphRAGSystem',
     'get_system',
     'list_systems',
     'AVAILABLE_SYSTEMS'
