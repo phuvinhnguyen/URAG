@@ -26,11 +26,6 @@ class FusionLLMSystem(AbstractRAGSystem):
             self.device = torch.device(device)
 
         self.technique = technique
-        
-        # Add pad token if not present
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-            
         self.num_samples = num_samples
         self.num_queries = num_queries  # Number of diverse queries to generate
         
@@ -61,7 +56,8 @@ class FusionLLMSystem(AbstractRAGSystem):
                 # Standard model loading approach for all models
                 self.tokenizer = AutoTokenizer.from_pretrained(
                     model_name,
-                    trust_remote_code=True
+                    trust_remote_code=True,
+                    padding_side="left"
                 )
                 self.model = AutoModelForCausalLM.from_pretrained(
                     model_name,

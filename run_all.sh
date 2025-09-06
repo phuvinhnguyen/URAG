@@ -12,7 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG_DIR="${1:-$SCRIPT_DIR/configs}"
-MAX_JOBS="${2:-${MAX_JOBS:-4}}"
+MAX_JOBS="${2:-${MAX_JOBS:-1}}"
 STATUS_DIR="$SCRIPT_DIR/.run_status"
 LOG_DIR="$SCRIPT_DIR/logs"
 CLI_PY="$SCRIPT_DIR/cli.py"
