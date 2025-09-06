@@ -29,8 +29,8 @@ class FusionLLMSystem(AbstractRAGSystem):
         self.num_queries = num_queries  # Number of diverse queries to generate
         self.technique = technique
         logger.info(f"Loading Fusion model {model_name} on {self.device}")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, padding_side="left")
+        self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True, torch_dtype=torch.float16 if self.device == "cuda" else torch.float32, device_map=self.device)
         self.model.to(self.device)
         self.model.eval()
         
