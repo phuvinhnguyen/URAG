@@ -1,0 +1,2216 @@
+[
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "3c35805c128d9ff6e1d987d4d1ace6f55734df6e",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add ProcessStatus class\n\nProcessStatus tracks the process status and allows callbacks on changes\nand status queries over the messagebus.\n\nStatusCallbackMap is used to setup the callbacks\n\nProcessState is an enum tracking the different states.\nB. Improve __repr__ for RunningTask objects.\n\nDisplays task name, status, and current coroutine.\nIf the task is pending on a trigger, displays the trigger.\nIf the task is finished, displays the outcome.\nC. Add options to post metrics to queue\n\nThis commit adds an option to SM to post metrics to cloudwatch.\nMetric data will be posted whenever scan queue items are added or\nremoved.\nD. Refactor to update pull requests with pending status\n\nThis commit refactors code to update the pull request with a pending\nstatus at the earliest possible time.\n\nAdditionally, this refactor includes fixes an issue where unexpected\ncharacters in the pull request title or body caused issues parsing\ngithub webhook payload json\nE. Reduce pressure on memory in stream tests\n\nThis change runs the python garbage collector before and after each\nstream test.\n\nThe garbage collector is disabled in the CI since it has a significant\nimpact on the duration of the jobs (which are time constrained in the CI).",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "1be51548fdbd7e7655d8dfdbc5ae1589ff432194",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Improve performance of path hint generation\n\nAvoid instantiating tons of different logic instances and just reuse the same instance by resetting its state every time it's needed.\nB. Convert resolve() to str.translate().\n\nNew translation table class _ResolveTable provides resolve functionality\nand improves performance.\n\nThis preserves current behavior of COCOTB_RESOLVE_X = RANDOM, where\nall instances of the character are translated to the same value.\nC. Refactor sanitizer transform logic\n\nMove logic to parse mapping of old to new column names and strip\nprefixes into their own functions with tests. This refactoring\nsimplifies the code in the main body of the sanitizer script.\nD. Handle translation of new computed virtual graph patterns\n\n- uses new virtual graph function machinery for translation\n- ensures we don't try to create indexes on virtual tables\nE. Document & correct use of class conversion methods\n\nRecently added `{to,from}_{serialized,raw,dict}` methods for various\nconversions were poorly documented, and sometimes even wrongly used.\nThis patch adds a short summary on when to use them, and fixes some\nsub par bits around the code.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "15dc5aa37dfc240a400fd01584eb711a4802ae06",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Attach list of groups to transaction node\n\nThis allows the transaction groomer to track down which entity\ngroups might have an entity lock that needs to be cleared after\nthe transaction is resolved.\nB. Create separate set of constants for operations\n\nThis is to differentiate between transaction table values and\nentity operations.\nC. Implement the datastore_v4.AllocateIds API\n\nThis allows clients to ensure that a list of entity IDs are never\nre-allocated.\nD. Simplify rollback_transaction method\n\nThis moves the protobuffer-related work to the proper layer.\nE. Use the EntityLock in the groomer\n\nThe allows the groomer to make index modifications under a lock\nwithout having to create transaction IDs.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "2cd36c45d30275f462fe22bf8e068e22f858f009",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Move shared static functions to utils\n\nThis allows other modules like the Celery worker to use them.\nB. Update setup.py so it doesn't rely on any functions from libcloud\npackages.\n\nThis way we avoid having setup.py depend on typing, requests and other\nmodules libcloud depends on.\nC. Move CLI imports into functions for speed\n\nIn order to prevent the CLI from taking long times due to importing everything, especially when the user mis-types a command for docopt to handle, import statements for the CLI functions have been moved to the actual functions instead of the module header\nD. Add a helper for importing a member from a module\n\nThis primitive appeared twice already, and follows the same\nscenario: import a module, then locate a member (a class, usually)\nin the module, and catch possible errors along the way.\nE. Use \"import numpy as np\" in the array_api submodule\n\nThis avoids importing everything inside the individual functions, but still is\npreferred over importing the functions used explicitly, as most of them clash\nwith the wrapper function names.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "a3814f96f5c9e27ddf3e00dc6ee4ee6401eea503",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add a nice provisioning progress to Artemis plugin\n\nArtemis plugin now displays the sequence of of guest states\nas its provisioning progresses. This has been implemented as\na reusable primitive context manager, coupled with a small\nrefactoring of code taking care of indentation.\nB. Improve speed of rebalance script\n\nThis removes the call to `nodetool ring`, which can get\nunreasonably slow as the amount of data in a BOP cluster increases.\n\nIt also adds a couple flags that allow the `nodetool status` call\nto be skipped if the user is already sure the sanity checks will\npass.\nC. Add MonitOperator\n\nThis uses Monit's XML API and groups closely-timed Monit reloads\ntogether.\nD. Enhance tmt.utils.retry_session with timeout support\n\n`retry_session` is now usable as a context manager, and accepts a\ntimeout to honor for each HTTP request.\n\nCurrent `retry_session` was overlapping with similar functionality in\n`artemis` plugin, so merged both together and threw context manager in\ntoo, because `retry_session` was used in that manner exclusively.\nE. Reboot has to check for boot time\n\nPrevious attempt with closing connection was not succesful as shown by\n/tests/execute/reboot/reuse_provision\n\nbtime in /proc/stat is boot time in seconds since epoch and reboot()\nwill make sure that it has changed\n\nAdds disk requirement for tests/full which is helps with testing",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "bceb7f05916e43611303c87a34c9062e275711ba",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Allow user to pass \"timeout\" argument to ScriptDeployment and\nScriptFileDeployment class.\n\nWith this argument, user can specify optional command run timeout for\nthose deployment steps.\nB. Add 'install_mode' to all installable targets\n\nThis makes it possible to customize permissions of all installable\ntargets, such as executable(), libraries, man pages, header files and\ncustom or generated targets.\n\nThis is useful, for instance, to install setuid/setgid binaries, which\nwas hard to accomplish without access to this attribute.\nC. Add ConfigToolDependency class\n\nThis class is meant abstract away some of the tedium of writing a config\ntool wrapper dependency, and allow these instances to share some basic\ncode that they all need.\nD. Adjust the default branch handling for libraries\n\nDetect the default branch and store it after cloning the repo.\nThis seems to make the implementation a bit more readable.\nE. Allow DeploymentConfig to take a KazooClient\n\nThis makes it easier to reuse the KazooClient for other things.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "f3c9734ee6177ae5897fdce63676d2f8886902d8",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Replace blank \"type: ignore\" with more specific waivers\n\nUsing mypy's error codes, waivers can target the actual erorr, leaving\nspace for other kind of violations to not be suppressed.\nB. Add options to post metrics to queue\n\nThis commit adds an option to SM to post metrics to cloudwatch.\nMetric data will be posted whenever scan queue items are added or\nremoved.\nC. Fix for orphaned items that may develop from a failed watcher event.\n\n- Also added optional (but on by default) silencing of verbose and useless botocore logs.\nD. Improve __repr__ for RunningTask objects.\n\nDisplays task name, status, and current coroutine.\nIf the task is pending on a trigger, displays the trigger.\nIf the task is finished, displays the outcome.\nE. Reduce unnecessary \"exists\" watches\n\nThis allows managers to stop watches if it's clear they are no\nlonger needed.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "2f910152193af3ef69ce16e062832433c1bf75db",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Allow custom service accounts for restore ops\n\nThis extends the datastore admin interface to allow custom\nservice accounts for restore operations.\nB. Handle UpdateIndexes calls\n\nThis adds index definitions to a project's ZooKeeper node if they\naren't there yet.\nC. Use the EntityLock in the groomer\n\nThe allows the groomer to make index modifications under a lock\nwithout having to create transaction IDs.\nD. Attach list of groups to transaction node\n\nThis allows the transaction groomer to track down which entity\ngroups might have an entity lock that needs to be cleared after\nthe transaction is resolved.\nE. Implement the datastore_v4.AllocateIds API\n\nThis allows clients to ensure that a list of entity IDs are never\nre-allocated.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "7ed0b36c3d0414f87a82efdbdf615dec7c97b71e",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Improve combine metadata script\n\n1. More detailed help message\n2. Helpful errors printed if assertions fail\n3. Encoding of metadata origin now uses explicit \"yes\"/\"no\" values\nrather than using the empty string.\nB. Update AWS error response XML parsing code so we also handle situation\nwhere response doesn't have a namespace.\n\nIt looks like that in some cases AWS returns error response without a\nnamespace which previous version of the code didn't handle correctly.\nC. Replace blank \"type: ignore\" with more specific waivers\n\nUsing mypy's error codes, waivers can target the actual erorr, leaving\nspace for other kind of violations to not be suppressed.\nD. Move protobuffer handling to different level\n\nParsing the commit request and populating the response should\nhappen at the protobuffer interface level rather than in\nDatastoreDistributed.\nE. Simplify datastore error handling\n\nIf an error code is defined, the response body does not need to be\nspecified. This prevents encoding issues in cases when a response\nmessage has required fields.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "15e95dc9e579e7123a4cb78d7347b8340f5fbc27",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Allow group locks to persist when commits fail\n\nThis prevents other clients from writing to a group before a large\nbatch is fully applied.\nB. Handle UpdateIndexes calls\n\nThis adds index definitions to a project's ZooKeeper node if they\naren't there yet.\nC. Attach list of groups to transaction node\n\nThis allows the transaction groomer to track down which entity\ngroups might have an entity lock that needs to be cleared after\nthe transaction is resolved.\nD. Implement the datastore_v4.AllocateIds API\n\nThis allows clients to ensure that a list of entity IDs are never\nre-allocated.\nE. Use the EntityLock in the groomer\n\nThe allows the groomer to make index modifications under a lock\nwithout having to create transaction IDs.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "b08b928d2937caa7ea70ba57839c52316390d9df",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Update setup.py so it doesn't rely on any functions from libcloud\npackages.\n\nThis way we avoid having setup.py depend on typing, requests and other\nmodules libcloud depends on.\nB. Replace the global GMTSession with 'atexit'\n\nNo need for the class or the global instance. Register 'end' with\n'atexit' to make sure end is called when exiting Python.\nC. Fix wallet_send.py wallet setup to work with descriptors\n\nFixes the wallet setup so this test works with descriptor wallets. Also\nenabled explicit descriptor and legacy wallet testing in the test\nrunner.\nD. Allow Python runtime to use an external API server\n\nIf given an external api port, the Python runtime will use it to\nmake App Identity calls.\nE. Support the service_account_name parameter\n\nThis allows GetAccessTokenRequests to specify a custom service\naccount for generating an authentication token.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "31ede29f649eb81eaaa8cb7665db020d7245de5c",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Attach list of groups to transaction node\n\nThis allows the transaction groomer to track down which entity\ngroups might have an entity lock that needs to be cleared after\nthe transaction is resolved.\nB. Use the EntityLock in the groomer\n\nThe allows the groomer to make index modifications under a lock\nwithout having to create transaction IDs.\nC. Implement the datastore_v4.AllocateIds API\n\nThis allows clients to ensure that a list of entity IDs are never\nre-allocated.\nD. Allow group locks to persist when commits fail\n\nThis prevents other clients from writing to a group before a large\nbatch is fully applied.\nE. Simplify rollback_transaction method\n\nThis moves the protobuffer-related work to the proper layer.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "c3f16251ede94fb1a44d774edf6f805402e31894",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Allow group locks to persist when commits fail\n\nThis prevents other clients from writing to a group before a large\nbatch is fully applied.\nB. Improve speed of rebalance script\n\nThis removes the call to `nodetool ring`, which can get\nunreasonably slow as the amount of data in a BOP cluster increases.\n\nIt also adds a couple flags that allow the `nodetool status` call\nto be skipped if the user is already sure the sanity checks will\npass.\nC. Allow user to pass \"timeout\" argument to ScriptDeployment and\nScriptFileDeployment class.\n\nWith this argument, user can specify optional command run timeout for\nthose deployment steps.\nD. Use the EntityLock in the groomer\n\nThe allows the groomer to make index modifications under a lock\nwithout having to create transaction IDs.\nE. Attach list of groups to transaction node\n\nThis allows the transaction groomer to track down which entity\ngroups might have an entity lock that needs to be cleared after\nthe transaction is resolved.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "9006a0055f77afb3fb2eb29b7e9f9fff91888459",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Simplify rollback_transaction method\n\nThis moves the protobuffer-related work to the proper layer.\nB. Attach list of groups to transaction node\n\nThis allows the transaction groomer to track down which entity\ngroups might have an entity lock that needs to be cleared after\nthe transaction is resolved.\nC. Fix remove_fallback()\n\nremove_fallback() was mainly created for use internally during shutdown\nand required the wrapped callable to be able to remove a handler. This\nmakes it general, using a mapping to find the wrapper from a handler if\nneeded. The method now also returns the success/failure status\nD. Reduce pressure on memory in stream tests\n\nThis change runs the python garbage collector before and after each\nstream test.\n\nThe garbage collector is disabled in the CI since it has a significant\nimpact on the duration of the jobs (which are time constrained in the CI).\nE. Move protobuffer handling to different level\n\nParsing the commit request and populating the response should\nhappen at the protobuffer interface level rather than in\nDatastoreDistributed.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "c6d4ab680da88e14ceafe6f7947f0cf858158f2d",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Rename queries sp*/s*o/*po to sp_/s_o/_po\n\nThis makes them valid identifiers, which allows to use query types as\nconfiguration keys (for example).\nB. Handle translation of new computed virtual graph patterns\n\n- uses new virtual graph function machinery for translation\n- ensures we don't try to create indexes on virtual tables\nC. Handle UpdateIndexes calls\n\nThis adds index definitions to a project's ZooKeeper node if they\naren't there yet.\nD. Implement the datastore_v4.AllocateIds API\n\nThis allows clients to ensure that a list of entity IDs are never\nre-allocated.\nE. Use the EntityLock in the groomer\n\nThe allows the groomer to make index modifications under a lock\nwithout having to create transaction IDs.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "865405bd4981add596149b09f72bdf5599289057",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Allow group locks to persist when commits fail\n\nThis prevents other clients from writing to a group before a large\nbatch is fully applied.\nB. Add MonitOperator\n\nThis uses Monit's XML API and groups closely-timed Monit reloads\ntogether.\nC. Improve speed of rebalance script\n\nThis removes the call to `nodetool ring`, which can get\nunreasonably slow as the amount of data in a BOP cluster increases.\n\nIt also adds a couple flags that allow the `nodetool status` call\nto be skipped if the user is already sure the sanity checks will\npass.\nD. Attach list of groups to transaction node\n\nThis allows the transaction groomer to track down which entity\ngroups might have an entity lock that needs to be cleared after\nthe transaction is resolved.\nE. Improve reliablility of p2p-acceptblock.py\n\nNumerous timing issues do with the the multi-threading and also\nthe requestmanager. Better to no rely on sync_with_ping() and also\nwe have to handle getheaders requests and subsequent multi hash\ngetdata requests.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "d78f837f3d0081832f70ab9483fd698ddbd919fb",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add test to simulate GCE instance setup\n\nThis change adds a test that sets up hosts' addressing and routing as it\nis on a GCE instance, and checks that we still get connectivity between\nworkloads on different hosts.\nB. Delete redirected wrap files in subprojects purge\n\nWe need to store the original filename as well as whether the wrap was\nredirected in order to properly purge the redirected wrap.\nC. Stop routing deleted versions\n\nThis ensures that deleted versions are absent from the HAProxy\nconfiguration file when HAProxy is reloaded.\nD. Use alternate headers for HA auth requests\n\nWhen sending a \"Authorization: Bearer\" header to the supervisor's /auth endpoint, the header gets used to authorize the addon and then _also_ authorize against HA which fails.  This changes requests made to the /auth enpoint so they use the \"X-Supervisor-Token\" header to avoid the conflict.\nE. Add macOS linker versioning information\n\nThis patch exploits the information residing in ltversion to set the\n-compatibility_version and -current_version flags that are passed to the\nlinker on macOS.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "9a9d19a0b6e4be31a36ebb21a3e8cf0b4650bb6a",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Simplify setting DummyResponse data in TAP+ tests\n\n`DummyResponse` is used in `esa/jwst` and `gaia` tests for mimicking\nserver responses. Now the response data can be specified by only setting\nthe parameters that have non-default values.\nB. Simplify rollback_transaction method\n\nThis moves the protobuffer-related work to the proper layer.\nC. Simplify datastore error handling\n\nIf an error code is defined, the response body does not need to be\nspecified. This prevents encoding issues in cases when a response\nmessage has required fields.\nD. Move to coredata some methods handling options\n\nThose methods only use coredata object, so better just move them as a\ncoredata method.\nE. Move protobuffer handling to different level\n\nParsing the commit request and populating the response should\nhappen at the protobuffer interface level rather than in\nDatastoreDistributed.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "6b41cdad4023a21c21dbb78f9bacfbfe5bcf9e8f",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add service account name field to backup form\n\nThis allows users to schedule a mapreduce-backed job with a\ncustom service account name for backing up to an arbitrary GCS\naccount.\nB. Add options to post metrics to queue\n\nThis commit adds an option to SM to post metrics to cloudwatch.\nMetric data will be posted whenever scan queue items are added or\nremoved.\nC. Implement Range downloads for the Azure Blobs driver and move common\nmethod which can be re-used by S3 based and Azure drivers to the base\ndriver class.\nD. Support the service_account_name parameter\n\nThis allows GetAccessTokenRequests to specify a custom service\naccount for generating an authentication token.\nE. Allow custom service accounts for restore ops\n\nThis extends the datastore admin interface to allow custom\nservice accounts for restore operations.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "6c368f596a1654a4866ab75db76759cd1f0aeb00",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Allow Python runtime to use an external API server\n\nIf given an external api port, the Python runtime will use it to\nmake App Identity calls.\nB. Use alternate headers for HA auth requests\n\nWhen sending a \"Authorization: Bearer\" header to the supervisor's /auth endpoint, the header gets used to authorize the addon and then _also_ authorize against HA which fails.  This changes requests made to the /auth enpoint so they use the \"X-Supervisor-Token\" header to avoid the conflict.\nC. Support the service_account_name parameter\n\nThis allows GetAccessTokenRequests to specify a custom service\naccount for generating an authentication token.\nD. Add service account name field to backup form\n\nThis allows users to schedule a mapreduce-backed job with a\ncustom service account name for backing up to an arbitrary GCS\naccount.\nE. Allow custom service accounts for restore ops\n\nThis extends the datastore admin interface to allow custom\nservice accounts for restore operations.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "9cc896202dc38d962c01aa2637dbc5bbc3e3dd9b",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Implement the datastore_v4.AllocateIds API\n\nThis allows clients to ensure that a list of entity IDs are never\nre-allocated.\nB. Allow custom service accounts for restore ops\n\nThis extends the datastore admin interface to allow custom\nservice accounts for restore operations.\nC. Use the EntityLock in the groomer\n\nThe allows the groomer to make index modifications under a lock\nwithout having to create transaction IDs.\nD. Support the service_account_name parameter\n\nThis allows GetAccessTokenRequests to specify a custom service\naccount for generating an authentication token.\nE. Add service account name field to backup form\n\nThis allows users to schedule a mapreduce-backed job with a\ncustom service account name for backing up to an arbitrary GCS\naccount.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "1cce41180f3cf7c2fbae686f5585a03363e4e1b9",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Convert guest implementations to use serializable container for load/save\n\nInstead of custom load/save methods, use those based on dataclasses. We\ngain type annotations, automagic conversion from/to YAML, no need for\nexplicit moves of fields between instances and serialized data.\nB. Use better type signatures in the array API module\n\nThis includes returning custom dataclasses for finfo and iinfo that only\ncontain the properties required by the array API specification.\nC. Add support for property metadata queries\n\nThis allows clients to request a list of property names and types\nfor all kinds in a given namespace.\nD. Add ConfigToolDependency class\n\nThis class is meant abstract away some of the tedium of writing a config\ntool wrapper dependency, and allow these instances to share some basic\ncode that they all need.\nE. Support for dataset-specific configurations and metadata\n\npreprocess now creates a dataset.yaml file with information about\nthe dataset.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "444e7026771cce4ece0feff9f5f3c76f57c61ed3",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add MonitOperator\n\nThis uses Monit's XML API and groups closely-timed Monit reloads\ntogether.\nB. Add subdirectories for aggregates\n\nTo enable multiple aggregates in a clean way in the output directory will now contain a sub-directory for each group for which the aggregate function is called\nC. Support selecting objects under the current folder\n\nAdd a special single dot notation for filtering stories, plans and\ntests under the current working directory. Update documentation\nand usage messages accordingly.\nD. Change schema for population.\n\n    MODEL cols AS stattype has become SET STATTYPE OF cols TO st\n\nReasoning: The word MODEL is confusing here, we are setting the statistical\ndata type so we should name the command just that.\nE. Use include_directories for D impdirs.\n\nChange the code to store D properties as plain data. Only convert them\nto compiler flags in the backend. This also means we can fully parse D\narguments without needing to know the compiler being used.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "7c1a73370bd6ffb091dbc7cb811ee447f6e176aa",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Update old style metaclasses\n\nthe old \"__metaclass__\" has been ignored since the switch to python 3\nthis restores the metaclass functionality by updating it to the new\nclass kwarg syntax\nB. Improve performance of path hint generation\n\nAvoid instantiating tons of different logic instances and just reuse the same instance by resetting its state every time it's needed.\nC. Add a helper for importing a member from a module\n\nThis primitive appeared twice already, and follows the same\nscenario: import a module, then locate a member (a class, usually)\nin the module, and catch possible errors along the way.\nD. Add RepoVersion class to make handling of many arguments easier\n\nThere are a number of arguments being passed around, nearly all of\nwhich are duplicated between the old and new versions. Moving these\ninto a separate class should hopefully make it simpler to follow\nwhat is being done.\nE. Adjust the default branch handling for libraries\n\nDetect the default branch and store it after cloning the repo.\nThis seems to make the implementation a bit more readable.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "a16d89f4b043ea07c6a936646924ac881e2b183b",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Fix multiline strings in schema examples\n\nUsing '\\' or multiline strings results in extra whitespace, so it seems\nbest to use Python's automatic concatenation of adjacent strings.\nB. Improve combine metadata script\n\n1. More detailed help message\n2. Helpful errors printed if assertions fail\n3. Encoding of metadata origin now uses explicit \"yes\"/\"no\" values\nrather than using the empty string.\nC. Fix RST parsing in schemagen\n\n- Use Python standardized docstring \"trim\" function to preserve newlines\n  and indentation in schelp strings.\n- Fix schemagen parse_rst() to handle multiline text\nD. Simplify datastore error handling\n\nIf an error code is defined, the response body does not need to be\nspecified. This prevents encoding issues in cases when a response\nmessage has required fields.\nE. Add ignore_comments to documentation\n\n- Also change data parsing functions to use 'ignore_data_comments'\n  rather than 'ignore_comments'. This clarifies the difference between\n  the two flags since 'ignore_data_comments' is used in parsing the data\n  section and 'ignore_comments' is used in parsing header sections.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "b1e5407c503fc067da452d6d65f503d018849252",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Define SelectionPredicateComposition\n\nMade a new class SelectionPredicateComposition to allow use of ~,&,| with certain PredicateCompositions.  Rewrote test_filter_transform_selection_predicates to match the new syntax.\nB. Refactor sanitizer transform logic\n\nMove logic to parse mapping of old to new column names and strip\nprefixes into their own functions with tests. This refactoring\nsimplifies the code in the main body of the sanitizer script.\nC. Handle special translation needed for 'likelihood' and 'concat' functions\n\nAlso slightly refactored and cleaned up translation of function expressions.\nD. Complete overhaul of filter testing.\n\nThese tests are much more flexible now for when additional filters are added.\nE. Simplify column attribute checking in `gaia` tests\n\nThe function `__check_results_column()` tested if the attributes (e.g.\ndescription) of the columns of the query results match the expectation.\nThis function is now replaced with\n`astropy.table.BaseColumn.attrs_equal()`, and the comparison data is now\nprovided by a `pytest` fixture.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "dbffb035f72de8d43e5f04fc1ea0ce1b0da21e7a",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make regex errors/warnings additive, add reports\n\n- Enables tools to extract additional errors/warnings from other logs\n- Add logfiles under reports to reduce boilerplate, the logfiles always\n  belong if regex is used\nB. Support selecting objects under the current folder\n\nAdd a special single dot notation for filtering stories, plans and\ntests under the current working directory. Update documentation\nand usage messages accordingly.\nC. Improve performance of path hint generation\n\nAvoid instantiating tons of different logic instances and just reuse the same instance by resetting its state every time it's needed.\nD. Add ability to construct RegressionManager with test/hook list\n\nStandard constructor that uses discovery has been moved to the\n`from_discovery` class method.\nE. Define SelectionPredicateComposition\n\nMade a new class SelectionPredicateComposition to allow use of ~,&,| with certain PredicateCompositions.  Rewrote test_filter_transform_selection_predicates to match the new syntax.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "e2acc7e1b8d14cc3c1f48d9a6609c99f2043c756",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Support short Fedora compose aliases in testcloud\n\nAdds support for 'fedora' as the latest released Fedora, 'rawhide'\nfor the latest Rawhide plus 'fedora-X', 'f-X' and 'fX' shortcuts.\nB. Move shared static functions to utils\n\nThis allows other modules like the Celery worker to use them.\nC. Implement a generic `requires` for all plugins\n\nAdd support for gathering packages required on the guest to all\nsupported plugins to allow easier future extension if needed.\nD. Support for dataset-specific configurations and metadata\n\npreprocess now creates a dataset.yaml file with information about\nthe dataset.\nE. Add macOS linker versioning information\n\nThis patch exploits the information residing in ltversion to set the\n-compatibility_version and -current_version flags that are passed to the\nlinker on macOS.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "8ec33c15a1586b5514b049600e960764a64a11dc",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add a nice provisioning progress to Artemis plugin\n\nArtemis plugin now displays the sequence of of guest states\nas its provisioning progresses. This has been implemented as\na reusable primitive context manager, coupled with a small\nrefactoring of code taking care of indentation.\nB. Move the Guest class from base to steps.provision\n\nHere it makes more sense as it is related to provision classes.\nC. Implement a generic `requires` for all plugins\n\nAdd support for gathering packages required on the guest to all\nsupported plugins to allow easier future extension if needed.\nD. Convert guest implementations to use serializable container for load/save\n\nInstead of custom load/save methods, use those based on dataclasses. We\ngain type annotations, automagic conversion from/to YAML, no need for\nexplicit moves of fields between instances and serialized data.\nE. Drop various guest `wake()` methods in favor of parent class\n\nThey all do the same things anyway: instantiate a guest class, with\ngiven data, pass parent and name down the stream. A base class can do\nall of this.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "3791880e2acac8537f2b293bafa9e11b12d5d087",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()\nB. Adjust the minute provision debug messages wording\n\nJust a couple of minor cosmetic adjustments to make the messages\nconsistent with the rest.\nC. Fix b_ndebug=if-release option\n\nProvide get_{type}_options_for_target() methods that unite {type} and builtin options.\nD. Fix for orphaned items that may develop from a failed watcher event.\n\n- Also added optional (but on by default) silencing of verbose and useless botocore logs.\nE. Add a nice provisioning progress to Artemis plugin\n\nArtemis plugin now displays the sequence of of guest states\nas its provisioning progresses. This has been implemented as\na reusable primitive context manager, coupled with a small\nrefactoring of code taking care of indentation.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "c82819fb89809c4cc165b8a05dd54a47d6be0fb1",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Move git helper out into mesonlib for reuse\n\nReuse the git helper for `meson wrap` and `meson subprojects` so we\ndon't need to maintain the same git-colors-on-windows workarounds in\nmultiple places.\nB. Move the list of LLVM version suffixes to a common place\n\nBoth scan-build and llvm-config need the same list of LLVM version\nsuffixes. It is better to keep the list at a common place instead of\nhaving several copies in different files, which is likely to become\nout-of-sync when the list is updated.\nC. Add RepoVersion class to make handling of many arguments easier\n\nThere are a number of arguments being passed around, nearly all of\nwhich are duplicated between the old and new versions. Moving these\ninto a separate class should hopefully make it simpler to follow\nwhat is being done.\nD. Add 'install_mode' to all installable targets\n\nThis makes it possible to customize permissions of all installable\ntargets, such as executable(), libraries, man pages, header files and\ncustom or generated targets.\n\nThis is useful, for instance, to install setuid/setgid binaries, which\nwas hard to accomplish without access to this attribute.\nE. Adjust the default branch handling for libraries\n\nDetect the default branch and store it after cloning the repo.\nThis seems to make the implementation a bit more readable.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "c9605aea40808f5b0bf00bbbd0ec679c09b760ac",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Convert guest implementations to use serializable container for load/save\n\nInstead of custom load/save methods, use those based on dataclasses. We\ngain type annotations, automagic conversion from/to YAML, no need for\nexplicit moves of fields between instances and serialized data.\nB. Move the Guest class from base to steps.provision\n\nHere it makes more sense as it is related to provision classes.\nC. Add ConfigToolDependency class\n\nThis class is meant abstract away some of the tedium of writing a config\ntool wrapper dependency, and allow these instances to share some basic\ncode that they all need.\nD. Implement a generic `requires` for all plugins\n\nAdd support for gathering packages required on the guest to all\nsupported plugins to allow easier future extension if needed.\nE. Add a nice provisioning progress to Artemis plugin\n\nArtemis plugin now displays the sequence of of guest states\nas its provisioning progresses. This has been implemented as\na reusable primitive context manager, coupled with a small\nrefactoring of code taking care of indentation.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "4dc7a314bb39c63b2f0e822d248bb24bed129c1d",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add a nice provisioning progress to Artemis plugin\n\nArtemis plugin now displays the sequence of of guest states\nas its provisioning progresses. This has been implemented as\na reusable primitive context manager, coupled with a small\nrefactoring of code taking care of indentation.\nB. Move the Guest class from base to steps.provision\n\nHere it makes more sense as it is related to provision classes.\nC. Implement a generic `requires` for all plugins\n\nAdd support for gathering packages required on the guest to all\nsupported plugins to allow easier future extension if needed.\nD. Convert guest implementations to use serializable container for load/save\n\nInstead of custom load/save methods, use those based on dataclasses. We\ngain type annotations, automagic conversion from/to YAML, no need for\nexplicit moves of fields between instances and serialized data.\nE. Enhance tmt.utils.retry_session with timeout support\n\n`retry_session` is now usable as a context manager, and accepts a\ntimeout to honor for each HTTP request.\n\nCurrent `retry_session` was overlapping with similar functionality in\n`artemis` plugin, so merged both together and threw context manager in\ntoo, because `retry_session` was used in that manner exclusively.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "211b9e86f98414dcbf0f6a88608e9dd08cd79c1b",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Enhance tmt.utils.retry_session with timeout support\n\n`retry_session` is now usable as a context manager, and accepts a\ntimeout to honor for each HTTP request.\n\nCurrent `retry_session` was overlapping with similar functionality in\n`artemis` plugin, so merged both together and threw context manager in\ntoo, because `retry_session` was used in that manner exclusively.\nB. Add a nice provisioning progress to Artemis plugin\n\nArtemis plugin now displays the sequence of of guest states\nas its provisioning progresses. This has been implemented as\na reusable primitive context manager, coupled with a small\nrefactoring of code taking care of indentation.\nC. Hide away session management\n\nImplement a GMTSession class to handle calling begin and end. Use it as\na global (package level) session. This way, each script/notebook uses\na single session. begin and end are no longer public API functions.\nD. Add MonitOperator\n\nThis uses Monit's XML API and groups closely-timed Monit reloads\ntogether.\nE. Reboot has to check for boot time\n\nPrevious attempt with closing connection was not succesful as shown by\n/tests/execute/reboot/reuse_provision\n\nbtime in /proc/stat is boot time in seconds since epoch and reboot()\nwill make sure that it has changed\n\nAdds disk requirement for tests/full which is helps with testing",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "e9b37078d9a877a4ad5de424e82ccfc67dae61ca",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Drop various guest `wake()` methods in favor of parent class\n\nThey all do the same things anyway: instantiate a guest class, with\ngiven data, pass parent and name down the stream. A base class can do\nall of this.\nB. Add a nice provisioning progress to Artemis plugin\n\nArtemis plugin now displays the sequence of of guest states\nas its provisioning progresses. This has been implemented as\na reusable primitive context manager, coupled with a small\nrefactoring of code taking care of indentation.\nC. Move the Guest class from base to steps.provision\n\nHere it makes more sense as it is related to provision classes.\nD. Document & correct use of class conversion methods\n\nRecently added `{to,from}_{serialized,raw,dict}` methods for various\nconversions were poorly documented, and sometimes even wrongly used.\nThis patch adds a short summary on when to use them, and fixes some\nsub par bits around the code.\nE. Convert guest implementations to use serializable container for load/save\n\nInstead of custom load/save methods, use those based on dataclasses. We\ngain type annotations, automagic conversion from/to YAML, no need for\nexplicit moves of fields between instances and serialized data.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "ff19da28d197996c05d86eddcf5351376c5c27f6",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Refactor TestResult object initialization\n\nJust add or alter attributes of the TestResult object, rather than many,\nmany invocations of the constructor with very similar arguments.\n\nDefine helper methods for TestResult to add the results of a step and\nset the failure reason.\nB. Fix resuming of SOBOL generator during ax search\n\nThis is done by fixing the seed and regenerating trials already performed.\nC. Check for available memory instead of its total amount in tests\n\nThis change prevents the python interpreter from triggering the\nOOM-killer while trying to use/allocate more memory than available on\nthe system.\nD. Enhance tmt.utils.retry_session with timeout support\n\n`retry_session` is now usable as a context manager, and accepts a\ntimeout to honor for each HTTP request.\n\nCurrent `retry_session` was overlapping with similar functionality in\n`artemis` plugin, so merged both together and threw context manager in\ntoo, because `retry_session` was used in that manner exclusively.\nE. Reboot has to check for boot time\n\nPrevious attempt with closing connection was not succesful as shown by\n/tests/execute/reboot/reuse_provision\n\nbtime in /proc/stat is boot time in seconds since epoch and reboot()\nwill make sure that it has changed\n\nAdds disk requirement for tests/full which is helps with testing",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "be1084624b4fb2c501a66dfcfd3cb9bde8108747",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Fix remove_fallback()\n\nremove_fallback() was mainly created for use internally during shutdown\nand required the wrapped callable to be able to remove a handler. This\nmakes it general, using a mapping to find the wrapper from a handler if\nneeded. The method now also returns the success/failure status\nB. Replace the global GMTSession with 'atexit'\n\nNo need for the class or the global instance. Register 'end' with\n'atexit' to make sure end is called when exiting Python.\nC. Remove unused keys parameter from wake() methods\n\nThis seems to be no longer used, and makes `wake()` more complicated\nthan necessary.\nD. Drop various guest `wake()` methods in favor of parent class\n\nThey all do the same things anyway: instantiate a guest class, with\ngiven data, pass parent and name down the stream. A base class can do\nall of this.\nE. Remove PDK-specific var defaults from openroad.py\n\nWe shouldn't be hardcoding tech-specific values in tool setup scripts,\nso we should use the new ['pdk', 'variable'] parameter to drive these.\n\nIn order to support user overrides, we'll still drive them through the\n['eda', ... 'variable'] keypath in the TCL script.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "20ed22e894d89810daaf9a3d979763f9a5d94d74",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Simplify setting DummyResponse data in TAP+ tests\n\n`DummyResponse` is used in `esa/jwst` and `gaia` tests for mimicking\nserver responses. Now the response data can be specified by only setting\nthe parameters that have non-default values.\nB. Unify Polarion case searching\n\nSave and load ids to/from results.yaml.\nAdd constant for extra identification keys.\nRaise ReportError on TC not found in Polarion.\nC. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()\nD. Add option to remove default output in models yaml file\n\nAdd option full_output (True by default) to model.to_yaml() and .to_dict(). Switching to False remove the entries for min, max, frozen and error if they are the same than the class defaults or nan.\nE. Support for dataset-specific configurations and metadata\n\npreprocess now creates a dataset.yaml file with information about\nthe dataset.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "c724839dae3bbde4cd102e5e174d1f4886a7abab",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Use an enum instead of strings for method names.\n\nIf a non-string value is passed as a method, reject this explicitly\nwith a clear error message rather than trying to match with it and\nfailing.\nB. Make regex errors/warnings additive, add reports\n\n- Enables tools to extract additional errors/warnings from other logs\n- Add logfiles under reports to reduce boilerplate, the logfiles always\n  belong if regex is used\nC. Simplify datastore error handling\n\nIf an error code is defined, the response body does not need to be\nspecified. This prevents encoding issues in cases when a response\nmessage has required fields.\nD. Replace blank \"type: ignore\" with more specific waivers\n\nUsing mypy's error codes, waivers can target the actual erorr, leaving\nspace for other kind of violations to not be suppressed.\nE. Add ignore_comments to documentation\n\n- Also change data parsing functions to use 'ignore_data_comments'\n  rather than 'ignore_comments'. This clarifies the difference between\n  the two flags since 'ignore_data_comments' is used in parsing the data\n  section and 'ignore_comments' is used in parsing header sections.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "8c7efb43f4bb5ebeabf41bce7b87f31a95074a1d",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add ConfigToolDependency class\n\nThis class is meant abstract away some of the tedium of writing a config\ntool wrapper dependency, and allow these instances to share some basic\ncode that they all need.\nB. Add RepoVersion class to make handling of many arguments easier\n\nThere are a number of arguments being passed around, nearly all of\nwhich are duplicated between the old and new versions. Moving these\ninto a separate class should hopefully make it simpler to follow\nwhat is being done.\nC. Document & correct use of class conversion methods\n\nRecently added `{to,from}_{serialized,raw,dict}` methods for various\nconversions were poorly documented, and sometimes even wrongly used.\nThis patch adds a short summary on when to use them, and fixes some\nsub par bits around the code.\nD. Move CLI imports into functions for speed\n\nIn order to prevent the CLI from taking long times due to importing everything, especially when the user mis-types a command for docopt to handle, import statements for the CLI functions have been moved to the actual functions instead of the module header\nE. Add a helper for importing a member from a module\n\nThis primitive appeared twice already, and follows the same\nscenario: import a module, then locate a member (a class, usually)\nin the module, and catch possible errors along the way.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "c2eee2af912e34debfcfa8c575835c2f9d1812d2",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Update old style metaclasses\n\nthe old \"__metaclass__\" has been ignored since the switch to python 3\nthis restores the metaclass functionality by updating it to the new\nclass kwarg syntax\nB. Rewrite custom_target template string substitution\n\nFactor it out into a function in mesonlib.py. This will allow us to\nreuse it for generators and for configure_file(). The latter doesn't\nimplement this at all right now.\n\nAlso includes unit tests.\nC. Document & correct use of class conversion methods\n\nRecently added `{to,from}_{serialized,raw,dict}` methods for various\nconversions were poorly documented, and sometimes even wrongly used.\nThis patch adds a short summary on when to use them, and fixes some\nsub par bits around the code.\nD. Convert guest implementations to use serializable container for load/save\n\nInstead of custom load/save methods, use those based on dataclasses. We\ngain type annotations, automagic conversion from/to YAML, no need for\nexplicit moves of fields between instances and serialized data.\nE. Add shorter tags for models\n\nRedefine most of models tags with a list including shorter aliases to be used with model.create(tag) and in YAML serialization. By default the tag returned in model.to_dict() is the 0th tag which is also the class name.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "134b710615faa45529757fd23eee012b2e8398a1",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Convert guest implementations to use serializable container for load/save\n\nInstead of custom load/save methods, use those based on dataclasses. We\ngain type annotations, automagic conversion from/to YAML, no need for\nexplicit moves of fields between instances and serialized data.\nB. Move the Guest class from base to steps.provision\n\nHere it makes more sense as it is related to provision classes.\nC. Add functionality to update listener/STT config\n\nWhen a new configuration is discovered the producer and consumer is shutdown, the config is read and a new producer-consumer pair is launched.\nD. Drop various guest `wake()` methods in favor of parent class\n\nThey all do the same things anyway: instantiate a guest class, with\ngiven data, pass parent and name down the stream. A base class can do\nall of this.\nE. Remove unused keys parameter from wake() methods\n\nThis seems to be no longer used, and makes `wake()` more complicated\nthan necessary.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "7b18ddcc6dd7f3f708e0681411033839abc0a203",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Fix for orphaned items that may develop from a failed watcher event.\n\n- Also added optional (but on by default) silencing of verbose and useless botocore logs.\nB. Fix resuming of SOBOL generator during ax search\n\nThis is done by fixing the seed and regenerating trials already performed.\nC. Reboot has to check for boot time\n\nPrevious attempt with closing connection was not succesful as shown by\n/tests/execute/reboot/reuse_provision\n\nbtime in /proc/stat is boot time in seconds since epoch and reboot()\nwill make sure that it has changed\n\nAdds disk requirement for tests/full which is helps with testing\nD. Clear previously-loaded models in Antimony when getting a new one.\n\nRepeated calls to 'loada' were causing steady increases in used memory because the Antimony library was storing every model.  This clears them out each time, since a tellurium user doesn't care about retrieving old models.\n\nAlso clean up a couple of warnings.\nE. Check for available memory instead of its total amount in tests\n\nThis change prevents the python interpreter from triggering the\nOOM-killer while trying to use/allocate more memory than available on\nthe system.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "70e2d9a7f62bfc56ea2469cc25384ced00e5741e",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Support for dataset-specific configurations and metadata\n\npreprocess now creates a dataset.yaml file with information about\nthe dataset.\nB. Add auto-generated unique names\n\n- add auto-generated unique names for model and dataset on init and copy\n- force unicity on datasets and skymodels\nC. Unify Polarion case searching\n\nSave and load ids to/from results.yaml.\nAdd constant for extra identification keys.\nRaise ReportError on TC not found in Polarion.\nD. Convert guest implementations to use serializable container for load/save\n\nInstead of custom load/save methods, use those based on dataclasses. We\ngain type annotations, automagic conversion from/to YAML, no need for\nexplicit moves of fields between instances and serialized data.\nE. Add support for property metadata queries\n\nThis allows clients to request a list of property names and types\nfor all kinds in a given namespace.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "bd4553f1952b25ceaf82e62eb525a142b83714dc",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add option to remove default output in models yaml file\n\nAdd option full_output (True by default) to model.to_yaml() and .to_dict(). Switching to False remove the entries for min, max, frozen and error if they are the same than the class defaults or nan.\nB. Simplify column attribute checking in `gaia` tests\n\nThe function `__check_results_column()` tested if the attributes (e.g.\ndescription) of the columns of the query results match the expectation.\nThis function is now replaced with\n`astropy.table.BaseColumn.attrs_equal()`, and the comparison data is now\nprovided by a `pytest` fixture.\nC. Add shorter tags for models\n\nRedefine most of models tags with a list including shorter aliases to be used with model.create(tag) and in YAML serialization. By default the tag returned in model.to_dict() is the 0th tag which is also the class name.\nD. Add support for relation prediction\n\nAdded a score_so method to KgeModel for this purpose and a default\nimplementation in RelationalScorer (which is currently used by all models).\nE. Add ability to construct RegressionManager with test/hook list\n\nStandard constructor that uses discovery has been moved to the\n`from_discovery` class method.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "056ad38583782f9315eed3d6aa607d5d7be2e438",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Handle UpdateIndexes calls\n\nThis adds index definitions to a project's ZooKeeper node if they\naren't there yet.\nB. Rename queries sp*/s*o/*po to sp_/s_o/_po\n\nThis makes them valid identifiers, which allows to use query types as\nconfiguration keys (for example).\nC. Define SelectionPredicateComposition\n\nMade a new class SelectionPredicateComposition to allow use of ~,&,| with certain PredicateCompositions.  Rewrote test_filter_transform_selection_predicates to match the new syntax.\nD. Validate `svo_fps` query parameter names locally\n\n`SvoFpsClass.data_from_svo()` now checks the names of the query\nparameters and only connects with the server if all names are valid.\nE. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "846a842a6dbd6c7f989bff5232c697be94ffb7b1",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Complete overhaul of filter testing.\n\nThese tests are much more flexible now for when additional filters are added.\nB. Make regex errors/warnings additive, add reports\n\n- Enables tools to extract additional errors/warnings from other logs\n- Add logfiles under reports to reduce boilerplate, the logfiles always\n  belong if regex is used\nC. Define SelectionPredicateComposition\n\nMade a new class SelectionPredicateComposition to allow use of ~,&,| with certain PredicateCompositions.  Rewrote test_filter_transform_selection_predicates to match the new syntax.\nD. Support selecting objects under the current folder\n\nAdd a special single dot notation for filtering stories, plans and\ntests under the current working directory. Update documentation\nand usage messages accordingly.\nE. Refactor sanitizer transform logic\n\nMove logic to parse mapping of old to new column names and strip\nprefixes into their own functions with tests. This refactoring\nsimplifies the code in the main body of the sanitizer script.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "e5f40d2eb3e6b1fcf7773a13c53e903a7124b090",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Refactor getting the host system of a cross compiler\n\nUse mesonlib.for_windows or mesonlib.for_cygwin instead of\nreimplementing them.\n\nAdd CrossBuildInfo.get_host_system to shorten the repeated the code in\nthe mesonlib.for_<platform> methods.\nB. Add MPI parallelization on different MPI communicators.\n\nThis is necessary to parallelize functions that are also parallelized.\nC. Move shared static functions to utils\n\nThis allows other modules like the Celery worker to use them.\nD. Support CUDA stream on memory pool\n\nNow, memory pool will have an arena (bins) for each stream\nto avoid concurrent streams touch the same memory block\nE. Add test to simulate GCE instance setup\n\nThis change adds a test that sets up hosts' addressing and routing as it\nis on a GCE instance, and checks that we still get connectivity between\nworkloads on different hosts.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "a4565ef863c2bdf5acbcb216681b3f2ee9ca9918",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Unify Polarion case searching\n\nSave and load ids to/from results.yaml.\nAdd constant for extra identification keys.\nRaise ReportError on TC not found in Polarion.\nB. Make execute_test less complex\n\nSplit the long function into several smaller ones just retaining the\nmain logic.\nC. Add 4 block attack scenarios to PV python testing\n\nAlso add the needed option -pvtest which slows down the checking\nof inputs by putting a sleep time of 1 second for each input to\ncheck.  This allows up to simulate very long to validate blocks\nused in the attack scenarios.\nD. Add jobid and njobs argument to script command.\n\nThis allows to run multiple experiments from the same script in several parallel executions of YANK.\nE. Allow user to pass \"timeout\" argument to ScriptDeployment and\nScriptFileDeployment class.\n\nWith this argument, user can specify optional command run timeout for\nthose deployment steps.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "926d3e6dbe16c21403a5f4fa83f066ecdff40c67",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()\nB. Drop phrasedml and sbml2matlab requirement.\n\nphrasedml and sbml2matlab don't exist for 3.10 yet, so we need to adjust code and fail gracefully when trying to import them.\nC. Add a helper for importing a member from a module\n\nThis primitive appeared twice already, and follows the same\nscenario: import a module, then locate a member (a class, usually)\nin the module, and catch possible errors along the way.\nD. Move CLI imports into functions for speed\n\nIn order to prevent the CLI from taking long times due to importing everything, especially when the user mis-types a command for docopt to handle, import statements for the CLI functions have been moved to the actual functions instead of the module header\nE. Use \"import numpy as np\" in the array_api submodule\n\nThis avoids importing everything inside the individual functions, but still is\npreferred over importing the functions used explicitly, as most of them clash\nwith the wrapper function names.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "b0a8c1dc01bd027cc4b1efd12a7cba9a2b7416a9",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Improve performance of path hint generation\n\nAvoid instantiating tons of different logic instances and just reuse the same instance by resetting its state every time it's needed.\nB. Use context managers to handle profiling\n\nThis avoids needing to remember to disable the profiler by every return statement, and reads more cleanly than using a `try` / `finally`\nC. Create a helper for checking if a string has a path component\n\nThis is used in a number of places, and in some places it is incomplete.\nUse a helper to ensure it's used properly.\nD. Add RepoVersion class to make handling of many arguments easier\n\nThere are a number of arguments being passed around, nearly all of\nwhich are duplicated between the old and new versions. Moving these\ninto a separate class should hopefully make it simpler to follow\nwhat is being done.\nE. Support aliasing of input files and querying from stdin.\n\nBecause an input file might be referenced by its alias now, we\nremoved various 'os.path.realpath' normalizations and use\n'normalize_file_path' more selectively now.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "cf0d18e6334193e198d9eb105eb775635198129b",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Enhance tmt.utils.retry_session with timeout support\n\n`retry_session` is now usable as a context manager, and accepts a\ntimeout to honor for each HTTP request.\n\nCurrent `retry_session` was overlapping with similar functionality in\n`artemis` plugin, so merged both together and threw context manager in\ntoo, because `retry_session` was used in that manner exclusively.\nB. Create and destroy C sessions inside call_module\n\nRemoves the need to always do this when using the C API. It's what the\ncommand line app does anyway so it's not wasteful.\nC. Replace the global GMTSession with 'atexit'\n\nNo need for the class or the global instance. Register 'end' with\n'atexit' to make sure end is called when exiting Python.\nD. Reduce pressure on memory in stream tests\n\nThis change runs the python garbage collector before and after each\nstream test.\n\nThe garbage collector is disabled in the CI since it has a significant\nimpact on the duration of the jobs (which are time constrained in the CI).\nE. Hide away session management\n\nImplement a GMTSession class to handle calling begin and end. Use it as\na global (package level) session. This way, each script/notebook uses\na single session. begin and end are no longer public API functions.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "15eeaa5a0080ca063d421feb0d64e94947c478b6",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Hide away session management\n\nImplement a GMTSession class to handle calling begin and end. Use it as\na global (package level) session. This way, each script/notebook uses\na single session. begin and end are no longer public API functions.\nB. Create and destroy C sessions inside call_module\n\nRemoves the need to always do this when using the C API. It's what the\ncommand line app does anyway so it's not wasteful.\nC. Replace the global GMTSession with 'atexit'\n\nNo need for the class or the global instance. Register 'end' with\n'atexit' to make sure end is called when exiting Python.\nD. Allow Python runtime to use an external API server\n\nIf given an external api port, the Python runtime will use it to\nmake App Identity calls.\nE. Enhance tmt.utils.retry_session with timeout support\n\n`retry_session` is now usable as a context manager, and accepts a\ntimeout to honor for each HTTP request.\n\nCurrent `retry_session` was overlapping with similar functionality in\n`artemis` plugin, so merged both together and threw context manager in\ntoo, because `retry_session` was used in that manner exclusively.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "710501ab0ac79a8fb5d6798936de652d1a4e3d3d",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Change to use argument name \"geom\" consistently.\n\nPreviously we had a mix of \"geom\" and \"ref_geom\" in Gammapy.\nB. Replace the global GMTSession with 'atexit'\n\nNo need for the class or the global instance. Register 'end' with\n'atexit' to make sure end is called when exiting Python.\nC. Hide away session management\n\nImplement a GMTSession class to handle calling begin and end. Use it as\na global (package level) session. This way, each script/notebook uses\na single session. begin and end are no longer public API functions.\nD. Fix wallet_send.py wallet setup to work with descriptors\n\nFixes the wallet setup so this test works with descriptor wallets. Also\nenabled explicit descriptor and legacy wallet testing in the test\nrunner.\nE. Check for available memory instead of its total amount in tests\n\nThis change prevents the python interpreter from triggering the\nOOM-killer while trying to use/allocate more memory than available on\nthe system.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "9a581830e4fa02eed501b4e1f546a2e2ea358e13",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Improve reliablility of p2p-acceptblock.py\n\nNumerous timing issues do with the the multi-threading and also\nthe requestmanager. Better to no rely on sync_with_ping() and also\nwe have to handle getheaders requests and subsequent multi hash\ngetdata requests.\nB. Reduce pressure on memory in stream tests\n\nThis change runs the python garbage collector before and after each\nstream test.\n\nThe garbage collector is disabled in the CI since it has a significant\nimpact on the duration of the jobs (which are time constrained in the CI).\nC. Add 4 block attack scenarios to PV python testing\n\nAlso add the needed option -pvtest which slows down the checking\nof inputs by putting a sleep time of 1 second for each input to\ncheck.  This allows up to simulate very long to validate blocks\nused in the attack scenarios.\nD. Make execute_test less complex\n\nSplit the long function into several smaller ones just retaining the\nmain logic.\nE. Fix wallet_send.py wallet setup to work with descriptors\n\nFixes the wallet setup so this test works with descriptor wallets. Also\nenabled explicit descriptor and legacy wallet testing in the test\nrunner.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "01975338cdb2444471df8371766f8a64815c1ad6",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add wait_for_message() method to messagebus client\n\n- Refactor message waiting into a MessageWaiter class to be able to use the\n  same code in both wait_for_message and wait_for_response.\n- Add some basic unittests\nB. Add 4 block attack scenarios to PV python testing\n\nAlso add the needed option -pvtest which slows down the checking\nof inputs by putting a sleep time of 1 second for each input to\ncheck.  This allows up to simulate very long to validate blocks\nused in the attack scenarios.\nC. Remove thread in DirectSound\n\nWe use instead pyglet.clock.schedule_interval_soft to regularly\nrefill the DirectSound buffer with new audio data.\nD. Improve reliablility of p2p-acceptblock.py\n\nNumerous timing issues do with the the multi-threading and also\nthe requestmanager. Better to no rely on sync_with_ping() and also\nwe have to handle getheaders requests and subsequent multi hash\ngetdata requests.\nE. Fix wallet_send.py wallet setup to work with descriptors\n\nFixes the wallet setup so this test works with descriptor wallets. Also\nenabled explicit descriptor and legacy wallet testing in the test\nrunner.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "05859b201594e87ff4d4472dd3914ef041314558",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Use the same function for detection of C and C++ compilers\n\nThe mechanism is identical which means there's a high likelihood of\nunintended divergence. In fact, a slight divergence was already there.\nB. Create separate set of constants for operations\n\nThis is to differentiate between transaction table values and\nentity operations.\nC. Make execute_test less complex\n\nSplit the long function into several smaller ones just retaining the\nmain logic.\nD. Reboot has to check for boot time\n\nPrevious attempt with closing connection was not succesful as shown by\n/tests/execute/reboot/reuse_provision\n\nbtime in /proc/stat is boot time in seconds since epoch and reboot()\nwill make sure that it has changed\n\nAdds disk requirement for tests/full which is helps with testing\nE. Add a minValue option to nonNegativeDerivative and perSecond\n\nIt works in a way similar to maxValue: when the counter wraps, instead of\nproducing a null value, it computes the difference assuming the counter wrapped\nto minValue.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "c3f6817a03d60af66b4cabb47d7ecbc642bf6376",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Use alternate headers for HA auth requests\n\nWhen sending a \"Authorization: Bearer\" header to the supervisor's /auth endpoint, the header gets used to authorize the addon and then _also_ authorize against HA which fails.  This changes requests made to the /auth enpoint so they use the \"X-Supervisor-Token\" header to avoid the conflict.\nB. Stop routing deleted versions\n\nThis ensures that deleted versions are absent from the HAProxy\nconfiguration file when HAProxy is reloaded.\nC. Improve reliablility of p2p-acceptblock.py\n\nNumerous timing issues do with the the multi-threading and also\nthe requestmanager. Better to no rely on sync_with_ping() and also\nwe have to handle getheaders requests and subsequent multi hash\ngetdata requests.\nD. Allow Python runtime to use an external API server\n\nIf given an external api port, the Python runtime will use it to\nmake App Identity calls.\nE. Support the service_account_name parameter\n\nThis allows GetAccessTokenRequests to specify a custom service\naccount for generating an authentication token.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "e3d28a803cdcd1f050dcbf8ea4ee4fa21954caba",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Fix b_ndebug=if-release option\n\nProvide get_{type}_options_for_target() methods that unite {type} and builtin options.\nB. Simplify column attribute checking in `gaia` tests\n\nThe function `__check_results_column()` tested if the attributes (e.g.\ndescription) of the columns of the query results match the expectation.\nThis function is now replaced with\n`astropy.table.BaseColumn.attrs_equal()`, and the comparison data is now\nprovided by a `pytest` fixture.\nC. Make _print_tcl() more robust\n\n- Use {} to escape strings, so that we can have spaces and newlines\n- Dump tuples as lists to avoid parsing\n- Make sure envvar syntax gets subbed in anywhere in string\nD. Use library instead of ad-hoc code\n\nThis replaces `pretty_print_combos` with `json.dumps`, and\n`compare_combos` with `jsoncomparison.Compare`.\nE. Fix multiline strings in schema examples\n\nUsing '\\' or multiline strings results in extra whitespace, so it seems\nbest to use Python's automatic concatenation of adjacent strings.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "b62db9ee2ab82514ab217a950dfe35829b20950a",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Allow `MetadataFactory.fetch_http` to skip sha256\n\n`MetadataFactory.fetch_http` must often download HTML pages, not\nUpdates.xml files. download.qt.io does not store checksums for these\nfiles, so this particular function must be allowed to download these\npages without using a checksum.\nB. Remove an utility function for reading test data\n\n`astroquery.utils.tap.xmlparser.utils.read_file_content()` has been\nreplaced with the standard library `pathlib.Path.read_text()`.\nFurthermore, in the modules where multiple test functions previously\nused `read_file_content()` to read the data files, they are now read\nonce at the module level instead.\nC. Add new storage API methods for downloading part of an object (range\ndownload) and implement it for the S3 and local storage drivers.\nD. Fix implementation of `helper.get_hash`\n\nCauses `get_hash` to verify the hash length, and check that the hash can\nbe unhexlified properly.\n\nFixes the interface for `get_hash` so that the caller does not have to\nrun `binascii.unhexlify` or verify its output.\nE. Unify Polarion case searching\n\nSave and load ids to/from results.yaml.\nAdd constant for extra identification keys.\nRaise ReportError on TC not found in Polarion.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "dc45839df46282db68817df7c991b91ab48e9d11",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Replace the global GMTSession with 'atexit'\n\nNo need for the class or the global instance. Register 'end' with\n'atexit' to make sure end is called when exiting Python.\nB. Support aliasing of input files and querying from stdin.\n\nBecause an input file might be referenced by its alias now, we\nremoved various 'os.path.realpath' normalizations and use\n'normalize_file_path' more selectively now.\nC. Allow `MetadataFactory.fetch_http` to skip sha256\n\n`MetadataFactory.fetch_http` must often download HTML pages, not\nUpdates.xml files. download.qt.io does not store checksums for these\nfiles, so this particular function must be allowed to download these\npages without using a checksum.\nD. Make skill ids use skill folder\nThis is necessary because in Python 3, hash(x) changes every single start of the application. Using the skill folder makes it consistent. In addition, the skill folder makes it easier to debug parts of the application in comparison to using something like an md5sum\nE. Fix implementation of `helper.get_hash`\n\nCauses `get_hash` to verify the hash length, and check that the hash can\nbe unhexlified properly.\n\nFixes the interface for `get_hash` so that the caller does not have to\nrun `binascii.unhexlify` or verify its output.",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "ed6cf7696871e01685c1c96d6d13deb6439ae490",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Update setup.py so it doesn't rely on any functions from libcloud\npackages.\n\nThis way we avoid having setup.py depend on typing, requests and other\nmodules libcloud depends on.\nB. Fix b_ndebug=if-release option\n\nProvide get_{type}_options_for_target() methods that unite {type} and builtin options.\nC. Add CLI option to install desktop qt automatically\n\nThis change also causes aqt to emit a warning when the option is not\nturned on and the expected desktop Qt is not found.\nD. Add 'install_mode' to all installable targets\n\nThis makes it possible to customize permissions of all installable\ntargets, such as executable(), libraries, man pages, header files and\ncustom or generated targets.\n\nThis is useful, for instance, to install setuid/setgid binaries, which\nwas hard to accomplish without access to this attribute.\nE. Allow `MetadataFactory.fetch_http` to skip sha256\n\n`MetadataFactory.fetch_http` must often download HTML pages, not\nUpdates.xml files. download.qt.io does not store checksums for these\nfiles, so this particular function must be allowed to download these\npages without using a checksum.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "75a13309377844662d8be00fe1fbf9b6112e9db9",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add test to simulate GCE instance setup\n\nThis change adds a test that sets up hosts' addressing and routing as it\nis on a GCE instance, and checks that we still get connectivity between\nworkloads on different hosts.\nB. Simplify setting DummyResponse data in TAP+ tests\n\n`DummyResponse` is used in `esa/jwst` and `gaia` tests for mimicking\nserver responses. Now the response data can be specified by only setting\nthe parameters that have non-default values.\nC. Reduce duplication in setting up `gaia` tests\n\nThe new module level fixtures allowed removing setup code from many\ntests.\nD. Add tests which verify that all OpenStack driver can be instantiated\nwith all the supported auth versions.\n\nNOTE: Those tests will fail right now due to the regressions being\nintroduced recently which breaks auth for some versions.\nE. Use test setups from the active (sub)project by default.\n\nReplace the logic where a test setup with no project specifier defaults to\nthe main project with one that takes the test setup from the same\n(sub)project from where the to-be-executed test has been read from.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "0f210ba5b311e2c25b02b8123c0805a0bc872c17",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Use test setups from the active (sub)project by default.\n\nReplace the logic where a test setup with no project specifier defaults to\nthe main project with one that takes the test setup from the same\n(sub)project from where the to-be-executed test has been read from.\nB. Add ability to construct RegressionManager with test/hook list\n\nStandard constructor that uses discovery has been moved to the\n`from_discovery` class method.\nC. Convert test protocol into an enum\n\nThis gives us better type safety, and will be important as we add more\ntest methods\nD. Allow tests to be run on demand\n\nWith this change, a string \"[test]\" can be added as a comment to a pull\nrequest by a whitelisted user to initiate testing on a pull request\nE. Refactor to update pull requests with pending status\n\nThis commit refactors code to update the pull request with a pending\nstatus at the earliest possible time.\n\nAdditionally, this refactor includes fixes an issue where unexpected\ncharacters in the pull request title or body caused issues parsing\ngithub webhook payload json",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "a72eda6c40cf000f172d7e11dd5a4b67fac855a0",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Allow tests to be run on demand\n\nWith this change, a string \"[test]\" can be added as a comment to a pull\nrequest by a whitelisted user to initiate testing on a pull request\nB. Update AWS error response XML parsing code so we also handle situation\nwhere response doesn't have a namespace.\n\nIt looks like that in some cases AWS returns error response without a\nnamespace which previous version of the code didn't handle correctly.\nC. Refactor to update pull requests with pending status\n\nThis commit refactors code to update the pull request with a pending\nstatus at the earliest possible time.\n\nAdditionally, this refactor includes fixes an issue where unexpected\ncharacters in the pull request title or body caused issues parsing\ngithub webhook payload json\nD. Improve __repr__ for RunningTask objects.\n\nDisplays task name, status, and current coroutine.\nIf the task is pending on a trigger, displays the trigger.\nIf the task is finished, displays the outcome.\nE. Move protobuffer handling to different level\n\nParsing the commit request and populating the response should\nhappen at the protobuffer interface level rather than in\nDatastoreDistributed.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "b9cb055cfabd29cd65b44800c8e85a3fb157b846",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make execute_test less complex\n\nSplit the long function into several smaller ones just retaining the\nmain logic.\nB. Fix wallet_send.py wallet setup to work with descriptors\n\nFixes the wallet setup so this test works with descriptor wallets. Also\nenabled explicit descriptor and legacy wallet testing in the test\nrunner.\nC. Reduce pressure on memory in stream tests\n\nThis change runs the python garbage collector before and after each\nstream test.\n\nThe garbage collector is disabled in the CI since it has a significant\nimpact on the duration of the jobs (which are time constrained in the CI).\nD. Check for available memory instead of its total amount in tests\n\nThis change prevents the python interpreter from triggering the\nOOM-killer while trying to use/allocate more memory than available on\nthe system.\nE. Replace the global GMTSession with 'atexit'\n\nNo need for the class or the global instance. Register 'end' with\n'atexit' to make sure end is called when exiting Python.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "84b110bc95d6a100081821c0daab9bbca4ad9794",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Support CUDA stream on memory pool\n\nNow, memory pool will have an arena (bins) for each stream\nto avoid concurrent streams touch the same memory block\nB. Fix wallet_send.py wallet setup to work with descriptors\n\nFixes the wallet setup so this test works with descriptor wallets. Also\nenabled explicit descriptor and legacy wallet testing in the test\nrunner.\nC. Reduce pressure on memory in stream tests\n\nThis change runs the python garbage collector before and after each\nstream test.\n\nThe garbage collector is disabled in the CI since it has a significant\nimpact on the duration of the jobs (which are time constrained in the CI).\nD. Check for available memory instead of its total amount in tests\n\nThis change prevents the python interpreter from triggering the\nOOM-killer while trying to use/allocate more memory than available on\nthe system.\nE. Remove thread in DirectSound\n\nWe use instead pyglet.clock.schedule_interval_soft to regularly\nrefill the DirectSound buffer with new audio data.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "eede0e1505faec4218a95b5b27702d68f3aa4f88",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()\nB. Change schema for population.\n\n    MODEL cols AS stattype has become SET STATTYPE OF cols TO st\n\nReasoning: The word MODEL is confusing here, we are setting the statistical\ndata type so we should name the command just that.\nC. Fix multiline strings in schema examples\n\nUsing '\\' or multiline strings results in extra whitespace, so it seems\nbest to use Python's automatic concatenation of adjacent strings.\nD. Fix RST parsing in schemagen\n\n- Use Python standardized docstring \"trim\" function to preserve newlines\n  and indentation in schelp strings.\n- Fix schemagen parse_rst() to handle multiline text\nE. Improve combine metadata script\n\n1. More detailed help message\n2. Helpful errors printed if assertions fail\n3. Encoding of metadata origin now uses explicit \"yes\"/\"no\" values\nrather than using the empty string.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "263bb8018dd186fa5b4fc580fca869be35c4dcf5",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make _print_tcl() more robust\n\n- Use {} to escape strings, so that we can have spaces and newlines\n- Dump tuples as lists to avoid parsing\n- Make sure envvar syntax gets subbed in anywhere in string\nB. Replace the global GMTSession with 'atexit'\n\nNo need for the class or the global instance. Register 'end' with\n'atexit' to make sure end is called when exiting Python.\nC. Remove PDK-specific var defaults from openroad.py\n\nWe shouldn't be hardcoding tech-specific values in tool setup scripts,\nso we should use the new ['pdk', 'variable'] parameter to drive these.\n\nIn order to support user overrides, we'll still drive them through the\n['eda', ... 'variable'] keypath in the TCL script.\nD. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()\nE. Add 'install_mode' to all installable targets\n\nThis makes it possible to customize permissions of all installable\ntargets, such as executable(), libraries, man pages, header files and\ncustom or generated targets.\n\nThis is useful, for instance, to install setuid/setgid binaries, which\nwas hard to accomplish without access to this attribute.",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "2aa226f7dba49d10d7175e151903f65282212ba0",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()\nB. Change schema for population.\n\n    MODEL cols AS stattype has become SET STATTYPE OF cols TO st\n\nReasoning: The word MODEL is confusing here, we are setting the statistical\ndata type so we should name the command just that.\nC. Fix multiline strings in schema examples\n\nUsing '\\' or multiline strings results in extra whitespace, so it seems\nbest to use Python's automatic concatenation of adjacent strings.\nD. Fix RST parsing in schemagen\n\n- Use Python standardized docstring \"trim\" function to preserve newlines\n  and indentation in schelp strings.\n- Fix schemagen parse_rst() to handle multiline text\nE. Make _print_tcl() more robust\n\n- Use {} to escape strings, so that we can have spaces and newlines\n- Dump tuples as lists to avoid parsing\n- Make sure envvar syntax gets subbed in anywhere in string",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "7c63859ebda3a519db318f3105862d46621e36cd",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make _print_tcl() more robust\n\n- Use {} to escape strings, so that we can have spaces and newlines\n- Dump tuples as lists to avoid parsing\n- Make sure envvar syntax gets subbed in anywhere in string\nB. Remove PDK-specific var defaults from openroad.py\n\nWe shouldn't be hardcoding tech-specific values in tool setup scripts,\nso we should use the new ['pdk', 'variable'] parameter to drive these.\n\nIn order to support user overrides, we'll still drive them through the\n['eda', ... 'variable'] keypath in the TCL script.\nC. Fix RST parsing in schemagen\n\n- Use Python standardized docstring \"trim\" function to preserve newlines\n  and indentation in schelp strings.\n- Fix schemagen parse_rst() to handle multiline text\nD. Fix multiline strings in schema examples\n\nUsing '\\' or multiline strings results in extra whitespace, so it seems\nbest to use Python's automatic concatenation of adjacent strings.\nE. Refactor getting the host system of a cross compiler\n\nUse mesonlib.for_windows or mesonlib.for_cygwin instead of\nreimplementing them.\n\nAdd CrossBuildInfo.get_host_system to shorten the repeated the code in\nthe mesonlib.for_<platform> methods.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "01ebf8a093f06eaee4bccd58943c1d8f072f2418",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Remove `utils.tap.conn.TapConn.url_encode()`\n\nThe removed method simply called the standard library\n`urllib.parse.urlencode()`.\nB. Tweak string escape approach\n\nUse \"\" instead of {} to remove persistent backslashes in front of curly\nbraces in string.\nC. Create a helper for checking if a string has a path component\n\nThis is used in a number of places, and in some places it is incomplete.\nUse a helper to ensure it's used properly.\nD. Fix multiline strings in schema examples\n\nUsing '\\' or multiline strings results in extra whitespace, so it seems\nbest to use Python's automatic concatenation of adjacent strings.\nE. Use correct environment for REGEN in VS backend.\n\nTry to guess which VS Command Prompt was used for the Meson call.\nIf one is chosen invoke it before calling Meson in REGEN command.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "579c9d4deca09dbb7a615bfb98c7678723b2aefd",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Unify Polarion case searching\n\nSave and load ids to/from results.yaml.\nAdd constant for extra identification keys.\nRaise ReportError on TC not found in Polarion.\nB. Make regex errors/warnings additive, add reports\n\n- Enables tools to extract additional errors/warnings from other logs\n- Add logfiles under reports to reduce boilerplate, the logfiles always\n  belong if regex is used\nC. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()\nD. Fix multiline strings in schema examples\n\nUsing '\\' or multiline strings results in extra whitespace, so it seems\nbest to use Python's automatic concatenation of adjacent strings.\nE. Fix RST parsing in schemagen\n\n- Use Python standardized docstring \"trim\" function to preserve newlines\n  and indentation in schelp strings.\n- Fix schemagen parse_rst() to handle multiline text",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "400e0b0e4fcb661888b8498ea3ff310c386aa75a",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Make tool regex set errors/warnings metrics\n\n- \"errors\" and \"warnings\" suffix is special case\n- Also update docs for relevant schema param and check_logfile()\nB. Define SelectionPredicateComposition\n\nMade a new class SelectionPredicateComposition to allow use of ~,&,| with certain PredicateCompositions.  Rewrote test_filter_transform_selection_predicates to match the new syntax.\nC. Replace blank \"type: ignore\" with more specific waivers\n\nUsing mypy's error codes, waivers can target the actual erorr, leaving\nspace for other kind of violations to not be suppressed.\nD. Improve logging when dependency is anonymous\n\nVarious pieces of logging assume the dependency has a name, and aren't\ngrammatical if the dependency is '', so say it is anonymous instead.\nE. Make regex errors/warnings additive, add reports\n\n- Enables tools to extract additional errors/warnings from other logs\n- Add logfiles under reports to reduce boilerplate, the logfiles always\n  belong if regex is used",
+        "correct_answer": "E",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "d635433ebc9648a09beb499488c077fa87032efd",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Use _implementation on all functions that have it in the array API submodule\n\nThat way they only work on actual ndarray inputs, not array-like, which is\nmore inline with the spec.\nB. Remove thread in DirectSound\n\nWe use instead pyglet.clock.schedule_interval_soft to regularly\nrefill the DirectSound buffer with new audio data.\nC. Implement the array API result_type() manually\n\nnp.result_type() has too many behaviors that we want to avoid in the array API\nnamespace, like value-based casting and unwanted type promotions. Instead, we\nimplement the exact type promotion table from the spec.\nD. Add a spectral cutout example\n\nAlso include support for numpy arrays for band and channel, and autocorrect the band and channel values to be in ascending order\nE. Use \"import numpy as np\" in the array_api submodule\n\nThis avoids importing everything inside the individual functions, but still is\npreferred over importing the functions used explicitly, as most of them clash\nwith the wrapper function names.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "31cedeada50149581f117e425c3191af8b6f0b97",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Add tests which verify that all OpenStack driver can be instantiated\nwith all the supported auth versions.\n\nNOTE: Those tests will fail right now due to the regressions being\nintroduced recently which breaks auth for some versions.\nB. Use an enum instead of strings for method names.\n\nIf a non-string value is passed as a method, reject this explicitly\nwith a clear error message rather than trying to match with it and\nfailing.\nC. Validate `svo_fps` query parameter names locally\n\n`SvoFpsClass.data_from_svo()` now checks the names of the query\nparameters and only connects with the server if all names are valid.\nD. Unify Polarion case searching\n\nSave and load ids to/from results.yaml.\nAdd constant for extra identification keys.\nRaise ReportError on TC not found in Polarion.\nE. Rename queries sp*/s*o/*po to sp_/s_o/_po\n\nThis makes them valid identifiers, which allows to use query types as\nconfiguration keys (for example).",
+        "correct_answer": "C",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "040f67665e7dbe682d07e8e1872cd782c263f951",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Simplify setting DummyResponse data in TAP+ tests\n\n`DummyResponse` is used in `esa/jwst` and `gaia` tests for mimicking\nserver responses. Now the response data can be specified by only setting\nthe parameters that have non-default values.\nB. Add test to simulate GCE instance setup\n\nThis change adds a test that sets up hosts' addressing and routing as it\nis on a GCE instance, and checks that we still get connectivity between\nworkloads on different hosts.\nC. Reduce duplication in setting up `gaia` tests\n\nThe new module level fixtures allowed removing setup code from many\ntests.\nD. Refactor TestResult object initialization\n\nJust add or alter attributes of the TestResult object, rather than many,\nmany invocations of the constructor with very similar arguments.\n\nDefine helper methods for TestResult to add the results of a step and\nset the failure reason.\nE. Remove `TestTap` class from `gaia` tests\n\nGrouping the tests together in a test class served no purpose and\neliminating the class removed a level of indentation.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "a2215fa0604f86cb1a4f006c5cb706375aa0d511",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Remove an utility function for reading test data\n\n`astroquery.utils.tap.xmlparser.utils.read_file_content()` has been\nreplaced with the standard library `pathlib.Path.read_text()`.\nFurthermore, in the modules where multiple test functions previously\nused `read_file_content()` to read the data files, they are now read\nonce at the module level instead.\nB. Simplify column attribute checking in `gaia` tests\n\nThe function `__check_results_column()` tested if the attributes (e.g.\ndescription) of the columns of the query results match the expectation.\nThis function is now replaced with\n`astropy.table.BaseColumn.attrs_equal()`, and the comparison data is now\nprovided by a `pytest` fixture.\nC. Use library instead of ad-hoc code\n\nThis replaces `pretty_print_combos` with `json.dumps`, and\n`compare_combos` with `jsoncomparison.Compare`.\nD. Reduce duplication in setting up `gaia` tests\n\nThe new module level fixtures allowed removing setup code from many\ntests.\nE. Remove `TestTap` class from `gaia` tests\n\nGrouping the tests together in a test class served no purpose and\neliminating the class removed a level of indentation.",
+        "correct_answer": "B",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "897aed03b17583152118d44f7a3b78f22a8a08b6",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Reduce duplication in setting up `gaia` tests\n\nThe new module level fixtures allowed removing setup code from many\ntests.\nB. Use test setups from the active (sub)project by default.\n\nReplace the logic where a test setup with no project specifier defaults to\nthe main project with one that takes the test setup from the same\n(sub)project from where the to-be-executed test has been read from.\nC. Simplify setting DummyResponse data in TAP+ tests\n\n`DummyResponse` is used in `esa/jwst` and `gaia` tests for mimicking\nserver responses. Now the response data can be specified by only setting\nthe parameters that have non-default values.\nD. Simplify column attribute checking in `gaia` tests\n\nThe function `__check_results_column()` tested if the attributes (e.g.\ndescription) of the columns of the query results match the expectation.\nThis function is now replaced with\n`astropy.table.BaseColumn.attrs_equal()`, and the comparison data is now\nprovided by a `pytest` fixture.\nE. Remove `TestTap` class from `gaia` tests\n\nGrouping the tests together in a test class served no purpose and\neliminating the class removed a level of indentation.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "f1805854fe98984268a8693e0e970b37b14cb50e",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Remove `TestTap` class from `gaia` tests\n\nGrouping the tests together in a test class served no purpose and\neliminating the class removed a level of indentation.\nB. Use test setups from the active (sub)project by default.\n\nReplace the logic where a test setup with no project specifier defaults to\nthe main project with one that takes the test setup from the same\n(sub)project from where the to-be-executed test has been read from.\nC. Reduce duplication in setting up `gaia` tests\n\nThe new module level fixtures allowed removing setup code from many\ntests.\nD. Simplify setting DummyResponse data in TAP+ tests\n\n`DummyResponse` is used in `esa/jwst` and `gaia` tests for mimicking\nserver responses. Now the response data can be specified by only setting\nthe parameters that have non-default values.\nE. Simplify column attribute checking in `gaia` tests\n\nThe function `__check_results_column()` tested if the attributes (e.g.\ndescription) of the columns of the query results match the expectation.\nThis function is now replaced with\n`astropy.table.BaseColumn.attrs_equal()`, and the comparison data is now\nprovided by a `pytest` fixture.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "766b512c71e32d908bb84ba1b7b60b2b2f205437",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Remove `utils.tap.conn.TapConn.url_encode()`\n\nThe removed method simply called the standard library\n`urllib.parse.urlencode()`.\nB. Remove an utility function for reading test data\n\n`astroquery.utils.tap.xmlparser.utils.read_file_content()` has been\nreplaced with the standard library `pathlib.Path.read_text()`.\nFurthermore, in the modules where multiple test functions previously\nused `read_file_content()` to read the data files, they are now read\nonce at the module level instead.\nC. Fix implementation of `helper.get_hash`\n\nCauses `get_hash` to verify the hash length, and check that the hash can\nbe unhexlified properly.\n\nFixes the interface for `get_hash` so that the caller does not have to\nrun `binascii.unhexlify` or verify its output.\nD. Simplify setting DummyResponse data in TAP+ tests\n\n`DummyResponse` is used in `esa/jwst` and `gaia` tests for mimicking\nserver responses. Now the response data can be specified by only setting\nthe parameters that have non-default values.\nE. Tweak string escape approach\n\nUse \"\" instead of {} to remove persistent backslashes in front of curly\nbraces in string.",
+        "correct_answer": "A",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    },
+    {
+        "generated_response": "",
+        "predicted_answer": "Unknown",
+        "conformal_probabilities": {},
+        "available_options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "id": "90c5652a04ed8108b6b16ab9d2be54165bb4e37f",
+        "question": "Given the context, which commit message best describes the following code changes?\nA. Enable searching system crossfile locations on more platforms\n\nThere's no reason not to also look in these places on Cygwin or OSX.  Don't\ndo this on Windows, as these paths aren't meaningful there.\n\nMove test_cross_file_system_paths from LinuxlikeTests to AllPlatformTests.\nB. Remove `utils.tap.conn.TapConn.url_encode()`\n\nThe removed method simply called the standard library\n`urllib.parse.urlencode()`.\nC. Unify Polarion case searching\n\nSave and load ids to/from results.yaml.\nAdd constant for extra identification keys.\nRaise ReportError on TC not found in Polarion.\nD. Remove an utility function for reading test data\n\n`astroquery.utils.tap.xmlparser.utils.read_file_content()` has been\nreplaced with the standard library `pathlib.Path.read_text()`.\nFurthermore, in the modules where multiple test functions previously\nused `read_file_content()` to read the data files, they are now read\nonce at the module level instead.\nE. Simplify column attribute checking in `gaia` tests\n\nThe function `__check_results_column()` tested if the attributes (e.g.\ndescription) of the columns of the query results match the expectation.\nThis function is now replaced with\n`astropy.table.BaseColumn.attrs_equal()`, and the comparison data is now\nprovided by a `pytest` fixture.",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D",
+            "E"
+        ],
+        "error": "GraphRAG indexing not completed. Auto-indexing was enabled but may have failed. Check logs for details. Dataset: datasets/commit_message_qa.json",
+        "system_type": "graphrag",
+        "auto_index_enabled": true,
+        "dataset_path": "datasets/commit_message_qa.json",
+        "graphrag_available": true
+    }
+]
