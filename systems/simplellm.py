@@ -65,11 +65,12 @@ class SimpleLLMSystem(AbstractRAGSystem):
         elif self.technique == 'rag': prompt = f"Context information: {sample.get('context', '')}\n\nQuestion: {question}\n\nPlease provide your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
         else: prompt = f"{question}\n\nPlease provide your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
         
-        if hasattr(self.tokenizer, 'apply_chat_template'):
+        try:
             prompt = self.tokenizer.apply_chat_template([
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
                 ], tokenize=False, add_generation_prompt=True)
+        except: pass
 
         return prompt
     
