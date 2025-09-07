@@ -147,6 +147,11 @@ def run_from_config(config_path: str, verbose: bool = False) -> Dict[str, Any]:
         
         # Initialize system
         logger.info(f"Initializing system: {system_name}")
+        
+        # Add dataset path for GraphRAG auto-indexing
+        if system_name == 'graphrag':
+            system_args['dataset_path'] = dataset_path
+        
         system = get_system(system_name, **system_args)
         
         # Create pipeline

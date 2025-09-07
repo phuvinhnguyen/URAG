@@ -1,0 +1,16 @@
+{
+    "total_samples": 82,
+    "accuracy": 0.0,
+    "lac_coverage": 0.0,
+    "aps_coverage": 0.0,
+    "lac_avg_set_size": 0.0,
+    "aps_avg_set_size": 0.0,
+    "lac_set_sizes": [],
+    "aps_set_sizes": [],
+    "auroc": null,
+    "aurac": null,
+    "thresholds": {
+        "lac_threshold": 0.5,
+        "aps_threshold": 0.5
+    }
+}

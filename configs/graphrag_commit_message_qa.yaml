@@ -1,0 +1,11 @@
+system:
+  name: graphrag
+  alpha: 0.1
+  args:
+    model_name: Qwen/Qwen3-0.6B
+    auto_index: true
+    llm_model_id: Qwen/Qwen3-0.6B
+    indexing_method: standard
+
+dataset: datasets/commit_message_qa.json
+output: results/graphrag_qwen3_0.6b_commit_message_qa
