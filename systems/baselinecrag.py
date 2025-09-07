@@ -244,7 +244,7 @@ class RAGModel(AbstractRAGSystem):
             'interaction_id': [sample['id'] for sample in samples],
             'query': [sample['question'] for sample in samples],
             'search_results': [sample['search_results'] for sample in samples],
-            'query_time': [sample.get('query_time', 'March 1, 2024') for sample in samples]
+            'query_time': [sample.get('query_time', 'March 1, 2025') for sample in samples]
         }
         answers = self.batch_generate_answer(batch)
         for sample, answer in zip(samples, answers):
