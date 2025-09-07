@@ -21,7 +21,7 @@ import json
 import orjson
 import os
 import numpy as np
-from datetime import datetime
+from tqdm import tqdm
 from typing import List, Dict, Any, Tuple
 
 from loguru import logger
@@ -63,7 +63,7 @@ class SystemEvaluator:
         
         raw_results = []
         # Process samples through the RAG system
-        for index in range(0, len(samples), self.rag_system.get_batch_size()):
+        for index in tqdm(range(0, len(samples), self.rag_system.get_batch_size()), desc="Processing samples"):
             batch = samples[index:index+self.rag_system.get_batch_size()]
             raw_result = self.rag_system.batch_process_samples(batch)
             raw_results.extend(raw_result)

@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
-from tqdm.auto import tqdm
 from loguru import logger
 
 class AbstractRAGSystem(ABC):
@@ -52,20 +51,11 @@ class AbstractRAGSystem(ABC):
             List of processed results
         """
         results = []
-        for sample in tqdm(samples, desc="Processing samples"):
+        for sample in samples:
             try:
                 result = self.process_sample(sample)
                 results.append(result)
             except Exception as e:
                 logger.exception(f"Error processing sample {sample.get('id', 'unknown')}: {e}")
-                # Add error result
-                error_result = {
-                    'id': sample.get('id', 'unknown'),
-                    'generated_response': f"Error: {str(e)}",
-                    'predicted_answer': "Error",
-                    'option_probabilities': {},
-                    'error': str(e)
-                }
-                results.append(error_result)
         
         return results
