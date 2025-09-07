@@ -102,4 +102,4 @@ class ChunkSearcher:
         retrieval_results = relevant_chunks[
             (-cosine_scores).argsort()[:k]
         ]
-        return retrieval_results
+        return list(retrieval_results)
