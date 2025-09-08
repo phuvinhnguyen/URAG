@@ -10,41 +10,33 @@ class SimpleRAGSystem(AbstractRAGSystem):
     def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "cuda", **kwargs):
         self.llm_system = SimpleLLMSystem(model_name, device, technique='rag')
     
-    def get_batch_size(self) -> int: return 1
+    def get_batch_size(self) -> int: return 20
 
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         results = []
-        for sample in samples:
-            try:
-                result = self.process_sample(sample)
-                results.append(result)
-            except Exception as e: pass        
-        return results
-
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        config = { "embedding_model": "all-MiniLM-L6-v2" }
-        num_retrieved_docs = 10
-
-        question = sample.get('question', '')
+        embedding_model = "all-MiniLM-L6-v2"
+        sample = samples[0]
         if sample.get('search_results', []) != [] and \
             sample['search_results'][0].get('persistent_storage', None):
             if not hasattr(self, 'database'):
-                self.database = ChunkSearcher(embedding_model=config['embedding_model'])
+                self.database = ChunkSearcher(embedding_model=embedding_model)
                 self.database.set_documents([get_storage(sample['search_results'][0]['persistent_storage'])])
             database = self.database
         else:
-            documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
-                        doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
-                        for doc in sample.get('search_results', [])]
-
-            database = ChunkSearcher(embedding_model=config['embedding_model'])
-            database.set_documents([documents])
-
-        retrieved_docs = database.search(question, k=num_retrieved_docs)
+            documents = [[doc['page_snippet'] + "\n\n" + clean_web_content(doc.get('page_result', ''))
+                        for doc in _sample.get('search_results', [])] for _sample in samples]
+            database = ChunkSearcher(embedding_model=embedding_model)
+            database.set_documents(documents)
         
-        augmented_sample = sample.copy()
-        if retrieved_docs: augmented_sample['context'] = "- " + "\n- ".join(retrieved_docs)
+        for _id, sample in enumerate(samples):
+            retrieved_docs = database.search(sample.get('question', ''), interaction_id=_id, k=10)
+            query_time = sample.get('query_time', 'March 1, 2025')
+            augmented_sample = sample.copy()
+            if retrieved_docs: augmented_sample['context'] = ("\n- " + "\n- ".join(retrieved_docs))[:4000] + '\nQuery Time: ' + query_time
+            try:
+                result = self.llm_system.process_sample(augmented_sample)
+                results.append(result)
+            except Exception as e:
+                print(e)        
         
-        result = self.llm_system.process_sample(augmented_sample)
-        
-        return result
+        return results

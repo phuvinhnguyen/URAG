@@ -92,8 +92,10 @@ class ChunkSearcher:
         self.chunk_embeddings = self.calculate_embeddings(chunks)
         self.chunks = chunks
         self.chunk_interaction_ids = chunk_interaction_ids
+        self.batch_size = len(documents)
         
     def search(self, query: str, interaction_id = 0, k: int = NUM_CONTEXT_SENTENCES):
+        interaction_id = int(interaction_id) % self.batch_size
         query_embedding = self.calculate_embeddings([query])[0]
         relevant_chunks_mask = self.chunk_interaction_ids == interaction_id
         relevant_chunks = self.chunks[relevant_chunks_mask]

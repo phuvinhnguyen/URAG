@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from typing import Dict, Any, List
 from transformers import StoppingCriteria, StoppingCriteriaList, AutoTokenizer, AutoModelForCausalLM
 
-SYSTEM_PROMPT = """You are provided with a multiple choice question and various references. Your task is to answer the question succinctly, using format Answer|X (mandatory) where X is your answer for the multiple choice question, which can be A, B, C, D, ... Follow this format strictly because it is the only way to extract your inner thoughts. You must provide the final answer as soon as possible.
+SYSTEM_PROMPT = """You are provided with a multiple choice question and various references. Your task is to answer the question succinctly, using format Answer|X (mandatory) where X is your answer for the multiple choice question, which can be A, B, C, D, ... Follow this format strictly because it is the only way to extract your inner thoughts. You must provide the final answer and finish the chat as soon as possible.
 For example:
 Question: What is the capital of France?
 A. London
@@ -37,7 +37,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
     Simple LLM system without RAG - just direct prompting, this serves as a baseline and example implementation.
     """
     
-    def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B-Instruct", device: str = "cuda", technique: str = "direct", max_new_tokens: int = 1024, temperature: float = 0.1):
+    def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B-Instruct", device: str = "cuda", technique: str = "direct", max_new_tokens: int = 100, temperature: float = 0.1):
         self.device = device
         self.technique = technique
         self.temperature = temperature
@@ -75,7 +75,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
         return prompt
     
     def _generate_response_with_probabilities(self, prompt: str, options: List[str]):
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512).to(self.device)
+        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
         start_ids = self.tokenizer.encode("Answer|", add_special_tokens=False)
         stopping = StoppingCriteriaList([EndSequenceCriteria(start_ids)])
 
@@ -94,20 +94,19 @@ class SimpleLLMSystem(AbstractRAGSystem):
         generated_text = self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
         last_token_probs = F.softmax(outputs.scores[-1][0], dim=-1)
         option_tokens = [self.tokenizer.encode(option, add_special_tokens=False)[0] for option in options]
-        last_token_probs = last_token_probs[option_tokens]
-        option_probabilities = {option: last_token_probs[i].item() for i, option in enumerate(options)}
-        return generated_text, option_probabilities
+        last_token_probs = last_token_probs[option_tokens] + 1e-10
+        last_token_probs = last_token_probs / last_token_probs.sum()
+        conformal_probabilities = {option: last_token_probs[i].item() for i, option in enumerate(options)}
+        return generated_text, conformal_probabilities
 
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process a single sample through the LLM system and return the predicted answer and option probabilities."""
         prompt = self._generate_prompt(sample)
         options = sample.get('options', [])
-        response, option_probabilities = self._generate_response_with_probabilities(prompt, options)        
+        response, conformal_probabilities = self._generate_response_with_probabilities(prompt, options)        
         return {
             'id': sample.get('id', 'unknown'),
             'generated_response': response,
-            'predicted_answer': max(option_probabilities.items(), key=lambda x: x[1])[0],
-            'option_probabilities': option_probabilities,
-            'provided_options': options,
+            'predicted_answer': max(conformal_probabilities.items(), key=lambda x: x[1])[0],
+            'conformal_probabilities': conformal_probabilities,
             'technique': self.technique
         }

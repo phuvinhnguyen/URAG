@@ -11,3 +11,11 @@ __pycache__/
 
 logs/
 .run_status/
+
+results
+output.log
+
+incomplete/
+
+datasets/crag*
+datasets/dialfact*

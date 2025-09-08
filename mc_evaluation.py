@@ -78,8 +78,7 @@ class SystemEvaluator:
             processed_result = {
                 'generated_response': result.get('generated_response', ''),
                 'predicted_answer': result.get('predicted_answer', 'Unknown'),
-                'conformal_probabilities': result.get('option_probabilities', {}),
-                'available_options': sample.get('options', []),
+                'conformal_probabilities': result.get('conformal_probabilities', {}),
                 'id': sample.get('id', 'unknown'),
                 'question': sample.get('question', ''),
                 'correct_answer': sample.get('correct_answer', ''),
