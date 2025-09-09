@@ -6,4 +6,3 @@ system:
 
 dataset: datasets/crag_task_1_and_2_mcqa_tiny.json
 output: results/fusionllm_llama_3.1_8b_instruct_crag_task_1_and_2_mcqa_tiny
-

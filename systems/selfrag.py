@@ -1,10 +1,8 @@
 from systems.abstract import AbstractRAGSystem
 from systems.selfllm import SelfLLMSystem
 from typing import Dict, Any, List
-from loguru import logger
 from utils.ramdb import ChunkSearcher  # pyright: ignore[reportMissingImports]
 from utils.clean import clean_web_content  # pyright: ignore[reportMissingImports]
-from utils.get_html import get_web_content  # pyright: ignore[reportMissingImports]
 from utils.storage import get_storage  # pyright: ignore[reportMissingImports]
 
 class SelfRAGSystem(AbstractRAGSystem):
@@ -68,7 +66,7 @@ class SelfRAGSystem(AbstractRAGSystem):
             retrieved_docs = database.batch_search(retrieval_needed_questions, [i for i in range(len(retrieval_needed_samples))], k=50)
 
             relevant_docs = self.filter_relevant_documents(retrieval_needed_questions, retrieved_docs)
-            relevant_docs = ['\n- '.join(docs) for docs in relevant_docs]
+            relevant_docs = ['\n- '.join(docs)[:4000] for docs in relevant_docs]
 
             confirm_questions = []
             confirm_options = []
@@ -98,6 +96,6 @@ class SelfRAGSystem(AbstractRAGSystem):
         return [{
             **self.llm_system.process_sample(augmented_sample),
             'retrieval_needed': retrieval_needed[i],
-            'context': augmented_sample['context'],
+            'context': augmented_sample.get('context', ''),
         }
         for i, augmented_sample in enumerate(augmented_samples)]

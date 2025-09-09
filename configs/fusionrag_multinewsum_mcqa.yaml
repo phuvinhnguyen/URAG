@@ -6,4 +6,3 @@ system:
 
 dataset: datasets/multinewsum_mcqa.json
 output: results/fusionrag_llama_3.1_8b_instruct_multinewsum_mcqa
-

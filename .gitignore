@@ -19,3 +19,6 @@ incomplete/
 
 datasets/crag*
 datasets/dialfact*
+datasets/health*
+
+comparisons/

@@ -14,6 +14,7 @@ local path: datasets/crag_mcqa_task_1_and_2_tiny.json
 ```bash
 curl -L -o ./mcqa-crag.zip https://www.kaggle.com/api/v1/datasets/download/curiouskat/mcqa-crag
 unzip mcqa-crag.zip
+rm mcqa-crag.zip
 ```
 
 ## Multinew Sum v
@@ -23,9 +24,15 @@ local path: datasets/multinewsum_mcqa.json
 link: https://huggingface.co/datasets/allenai/scifact
 local path: datasets/scifact.json
 
-## Healthver
+## Healthver v
 link: https://huggingface.co/datasets/dwadden/healthver_entailment
 local path: datasets/healthver.json
+```bash
+#!/bin/bash
+curl -L -o ./healthver-en-mcqa.zip https://www.kaggle.com/api/v1/datasets/download/suzhentxt/healthver-en-mcqa
+unzip healthver-en-mcqa.zip
+rm healthver-en-mcqa.zip
+```
 
 ## ODEX v
 link: https://huggingface.co/datasets/code-rag-bench/odex/
