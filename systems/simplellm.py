@@ -52,7 +52,6 @@ class SimpleLLMSystem(AbstractRAGSystem):
         )
         self.model.eval()
         
-        # Add pad token if not present
         if self.tokenizer.pad_token is None: self.tokenizer.pad_token = self.tokenizer.eos_token
     
     def get_batch_size(self) -> int: return 1

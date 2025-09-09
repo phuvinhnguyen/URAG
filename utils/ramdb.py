@@ -1,107 +1,72 @@
-
-from collections import defaultdict
-from typing import List
 import numpy as np
-import ray
-from blingfire import text_to_sentences_and_offsets
-from bs4 import BeautifulSoup
-from sentence_transformers import SentenceTransformer
 import torch
+from sentence_transformers import SentenceTransformer
+from typing import List
+from concurrent.futures import ThreadPoolExecutor
+from bs4 import BeautifulSoup
+from blingfire import text_to_sentences_and_offsets
 
-#### CONFIG PARAMETERS ---
-NUM_CONTEXT_SENTENCES = 20
 MAX_CONTEXT_SENTENCE_LENGTH = 1000
-MAX_CONTEXT_REFERENCES_LENGTH = 4000
 SENTENCE_TRANSFORMER_BATCH_SIZE = 128
-#### CONFIG PARAMETERS END ---
 
-class ChunkExtractor:
-    @ray.remote
-    def _extract_chunks(self, interaction_id, html_source):
-        soup = BeautifulSoup(html_source, "lxml")
-        text = soup.get_text(" ", strip=True)
-
-        if not text: return interaction_id, [""]
-
-        _, offsets = text_to_sentences_and_offsets(text)
-
-        chunks = []
-
-        for start, end in offsets:
-            sentence = text[start:end][:MAX_CONTEXT_SENTENCE_LENGTH]
-            chunks.append(sentence)
-
-        return interaction_id, chunks
-
-    def extract_chunks(self, batch_interaction_ids, batch_page_results):
-        ray_response_refs = [
-            self._extract_chunks.remote(
-                self,
-                interaction_id=batch_interaction_ids[idx],
-                html_source=html_text
-            )
-            for idx, page_results in enumerate(batch_page_results)
-            for html_text in page_results
-        ]
-
-        chunk_dictionary = defaultdict(list)
-
-        for response_ref in ray_response_refs:
-            interaction_id, _chunks = ray.get(response_ref)  # Blocking call until parallel execution is complete
-            chunk_dictionary[interaction_id].extend(_chunks)
-
-        chunks, chunk_interaction_ids = self._flatten_chunks(chunk_dictionary)
-
-        return chunks, chunk_interaction_ids
-
-    def _flatten_chunks(self, chunk_dictionary):
-        chunks = []
-        chunk_interaction_ids = []
-
-        for interaction_id, _chunks in chunk_dictionary.items():
-            unique_chunks = list(set(_chunks))
-            chunks.extend(unique_chunks)
-            chunk_interaction_ids.extend([interaction_id] * len(unique_chunks))
-
-        chunks = np.array(chunks)
-        chunk_interaction_ids = np.array(chunk_interaction_ids)
-
-        return chunks, chunk_interaction_ids
+def process_doc(args):
+    """Fast parallel document chunking"""
+    doc, interaction_id, max_len = args
+    if not doc.strip():
+        return [], []
+    
+    # Fast HTML cleaning + sentence splitting
+    text = BeautifulSoup(doc, "lxml").get_text(" ", strip=True) if "<" in doc else doc
+    _, offsets = text_to_sentences_and_offsets(text)
+    
+    chunks = [text[s:e][:max_len] for s, e in offsets if e-s > 10]
+    ids = [interaction_id] * len(chunks)
+    return chunks, ids
 
 class ChunkSearcher:
-    def __init__(self, embedding_model: str = "all-MiniLM-L6-v2", max_sentence_length: int = MAX_CONTEXT_SENTENCE_LENGTH, batch_size: int = SENTENCE_TRANSFORMER_BATCH_SIZE):
-        self.embedding_model_name = embedding_model
-        self.max_sentence_length = max_sentence_length
-        self.batch_size = batch_size
-        self.sentence_model = SentenceTransformer(
-            self.embedding_model_name,
-            device="cuda" if torch.cuda.is_available() else "cpu"
-        )
-        self.chunk_extractor = ChunkExtractor()
-
-    def calculate_embeddings(self, sentences):
-        embeddings = self.sentence_model.encode(
-            sentences=sentences,
-            normalize_embeddings=True,
-            batch_size=self.batch_size,
-        )
-        return embeddings
-    
-    def set_documents(self, documents: List[List[str]]):
-        chunks, chunk_interaction_ids = self.chunk_extractor.extract_chunks([i for i in range(len(documents))], documents)
-        self.chunk_embeddings = self.calculate_embeddings(chunks)
-        self.chunks = chunks
-        self.chunk_interaction_ids = chunk_interaction_ids
-        self.batch_size = len(documents)
+    def __init__(self, embedding_model: str = "all-MiniLM-L6-v2", max_workers: int = 8):
+        self.model = SentenceTransformer(embedding_model, device="cuda" if torch.cuda.is_available() else "cpu")
+        self.max_workers = max_workers
         
-    def search(self, query: str, interaction_id = 0, k: int = NUM_CONTEXT_SENTENCES):
-        interaction_id = int(interaction_id) % self.batch_size
-        query_embedding = self.calculate_embeddings([query])[0]
-        relevant_chunks_mask = self.chunk_interaction_ids == interaction_id
-        relevant_chunks = self.chunks[relevant_chunks_mask]
-        relevant_chunks_embeddings = self.chunk_embeddings[relevant_chunks_mask]
-        cosine_scores = (relevant_chunks_embeddings * query_embedding).sum(1)
-        retrieval_results = relevant_chunks[
-            (-cosine_scores).argsort()[:k]
-        ]
-        return list(retrieval_results)
+    def set_documents(self, docs: List[List[str]]):
+        # Parallel chunking with ThreadPool
+        tasks = [(doc, i, MAX_CONTEXT_SENTENCE_LENGTH) for i, doc_list in enumerate(docs) for doc in doc_list]
+        
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            results = list(executor.map(process_doc, tasks))
+        
+        # Flatten results
+        chunks, ids = [], []
+        for chunk_list, id_list in results:
+            chunks.extend(chunk_list)
+            ids.extend(id_list)
+        
+        self.chunks, self.ids = np.array(chunks), np.array(ids)
+        
+        # Single batch embedding (most efficient)
+        self.embeddings = self.model.encode(chunks, normalize_embeddings=True, 
+                                          batch_size=SENTENCE_TRANSFORMER_BATCH_SIZE, show_progress_bar=False)
+    
+    def batch_search(self, queries: List[str], interaction_ids: List[int], k: int = 20):
+        # Single batch query embedding
+        query_embeds = self.model.encode(queries, normalize_embeddings=True, 
+                                       batch_size=SENTENCE_TRANSFORMER_BATCH_SIZE, show_progress_bar=False)
+        
+        # Vectorized similarity matrix
+        similarities = query_embeds @ self.embeddings.T
+        
+        # Parallel result extraction
+        def get_top_k(args):
+            i, iid = args
+            mask = self.ids == (iid % (max(self.ids) + 1) if len(self.ids) > 0 else 0)
+            if not mask.any():
+                return []
+            scores = similarities[i, mask]
+            top_idx = np.argpartition(-scores, min(k, len(scores)-1))[:k]
+            return self.chunks[mask][top_idx].tolist()
+        
+        with ThreadPoolExecutor(max_workers=min(len(queries), self.max_workers)) as executor:
+            return list(executor.map(get_top_k, enumerate(interaction_ids)))
+    
+    def search(self, query: str, interaction_id: int = 0, k: int = 20):
+        return self.batch_search([query], [interaction_id], k)[0]

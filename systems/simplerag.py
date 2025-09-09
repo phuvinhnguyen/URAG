@@ -3,7 +3,6 @@ from systems.simplellm import SimpleLLMSystem
 from typing import Dict, Any, List
 from utils.clean import clean_web_content
 from utils.ramdb import ChunkSearcher
-from utils.get_html import get_web_content
 from utils.storage import get_storage
 
 class SimpleRAGSystem(AbstractRAGSystem):    
@@ -27,12 +26,16 @@ class SimpleRAGSystem(AbstractRAGSystem):
                         for doc in _sample.get('search_results', [])] for _sample in samples]
             database = ChunkSearcher(embedding_model=embedding_model)
             database.set_documents(documents)
-        
-        for _id, sample in enumerate(samples):
-            retrieved_docs = database.search(sample.get('question', ''), interaction_id=_id, k=10)
+
+        retrieved_docs = database.batch_search(
+            [sample.get('question', '') for sample in samples],
+            [i for i in range(len(samples))],
+            k=10)
+
+        for _id, (sample, retrieved_doc) in enumerate(zip(samples, retrieved_docs)):
             query_time = sample.get('query_time', 'March 1, 2025')
             augmented_sample = sample.copy()
-            if retrieved_docs: augmented_sample['context'] = ("\n- " + "\n- ".join(retrieved_docs))[:4000] + '\nQuery Time: ' + query_time
+            if retrieved_doc: augmented_sample['context'] = ("\n- " + "\n- ".join(retrieved_doc))[:4000] + '\nQuery Time: ' + query_time
             try:
                 result = self.llm_system.process_sample(augmented_sample)
                 results.append(result)
