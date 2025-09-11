@@ -24,15 +24,6 @@ D. 6
 Answer|B
 """
 
-class EndSequenceCriteria(StoppingCriteria):
-    def __init__(self, end_ids):
-        super().__init__()
-        self.end_ids = end_ids
-
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-        if len(input_ids[0]) < len(self.end_ids) + 1: return False
-        return torch.equal(input_ids[0][-len(self.end_ids)-1:-1], torch.tensor(self.end_ids, device=input_ids.device))
-
 class SelfLLMSystem(AbstractRAGSystem):
     """
     Self-RAG LLM system that implements self-reflection for retrieval and generation.
@@ -43,11 +34,12 @@ class SelfLLMSystem(AbstractRAGSystem):
     - Whether the generated answer is supported by the context
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "cuda", technique: str = "direct", max_new_tokens: int = 512, temperature: float = 0.1):
+    def __init__(self, model_name: str = "gpt2", device: str = "cuda", technique: str = "direct", max_new_tokens: int = 512, temperature: float = 0.1, method: str = 'normal'):
         self.max_new_tokens = max_new_tokens
         self.temperature = temperature
         self.device = device
         self.technique = technique
+        self.method = method
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, padding_side="left")
         self.model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True, torch_dtype=torch.float16 if device == "cuda" else torch.float32, device_map="auto" if device == "cuda" else None)
         self.model_name = model_name
@@ -170,31 +162,6 @@ Response: """
             user_message = f"{question}\n\nPlease provide your final answer in the format Answer|X where X is one of A, B, C, or D."
         
         return self._create_unified_prompt(system_message, user_message)
-
-    def _generate_response_with_probabilities(self, prompt: str, options: List[str]):
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        start_ids = self.tokenizer.encode("Answer|", add_special_tokens=False)
-        stopping = StoppingCriteriaList([EndSequenceCriteria(start_ids)])
-
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id,
-                stopping_criteria=stopping,
-                return_dict_in_generate=True,
-                output_scores=True
-            )
-
-        generated_text = self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
-        last_token_probs = F.softmax(outputs.scores[-1][0], dim=-1)
-        option_tokens = [self.tokenizer.encode(option, add_special_tokens=False)[0] for option in options]
-        last_token_probs = last_token_probs[option_tokens] + 1e-10
-        last_token_probs = last_token_probs / last_token_probs.sum()
-        conformal_probabilities = {option: last_token_probs[i].item() for i, option in enumerate(options)}
-        return generated_text, conformal_probabilities
 
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         prompt = self._generate_prompt(sample)

@@ -1,17 +1,7 @@
 from systems.abstract import AbstractRAGSystem
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM, StoppingCriteria, StoppingCriteriaList
-import torch.nn.functional as F
-from typing import Dict, Any, List
-
-class EndSequenceCriteria(StoppingCriteria):
-    def __init__(self, end_ids):
-        super().__init__()
-        self.end_ids = end_ids
-
-    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs) -> bool:
-        if len(input_ids[0]) < len(self.end_ids) + 1: return False
-        return torch.equal(input_ids[0][-len(self.end_ids)-1:-1], torch.tensor(self.end_ids, device=input_ids.device))
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from typing import Dict, Any
 
 class HyDELLMSystem(AbstractRAGSystem):
     """
@@ -21,7 +11,7 @@ class HyDELLMSystem(AbstractRAGSystem):
     then uses that document for retrieval instead of the original query.
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "cuda", num_samples: int = 20, technique: str = "direct", temperature: float = 0.1, max_new_tokens: int = 1024):
+    def __init__(self, model_name: str = "gpt2", device: str = "cuda", num_samples: int = 20, technique: str = "direct", temperature: float = 0.1, max_new_tokens: int = 1024, method: str = 'normal'):
         self.device = device
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
@@ -35,7 +25,7 @@ class HyDELLMSystem(AbstractRAGSystem):
             device_map="auto" if self.device == "cuda" else None)
         self.model.eval()
         self.model_name = model_name
-        
+        self.method = method
         if self.tokenizer.pad_token is None: self.tokenizer.pad_token = self.tokenizer.eos_token
     
     def get_batch_size(self) -> int: return 1
@@ -75,36 +65,6 @@ class HyDELLMSystem(AbstractRAGSystem):
             user_message = f"{question}\n\nPlease provide your final answer in the format Answer|X where X is one of A, B, C, D, ..."
         
         return self._create_unified_prompt(system_message, user_message)
-
-    def _generate_response_with_probabilities(self, prompt: str, options: List[str] = None):
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        start_ids = self.tokenizer.encode("Answer|", add_special_tokens=False)
-        stopping = StoppingCriteriaList([EndSequenceCriteria(start_ids)])
-
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-                stopping_criteria=stopping,
-                return_dict_in_generate=True,
-                output_scores=True,
-                # repetition_penalty=1.1,
-                # top_p=0.9,
-                # top_k=40,
-                # num_return_sequences=1
-            )
-
-        generated_text = self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
-        last_token_probs = F.softmax(outputs.scores[-1][0], dim=-1)
-        option_tokens = [self.tokenizer.encode(option, add_special_tokens=False)[0] for option in options]
-        last_token_probs = last_token_probs[option_tokens] + 1e-10
-        last_token_probs = last_token_probs / last_token_probs.sum()
-        conformal_probabilities = {option: last_token_probs[i].item() for i, option in enumerate(options)}
-        return generated_text, conformal_probabilities
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         prompt = self._generate_prompt(sample)

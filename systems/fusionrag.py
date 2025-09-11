@@ -25,7 +25,7 @@ class FusionRAGSystem(AbstractRAGSystem):
     """
     
     def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, num_queries: int = 3, k: int = 60, **kwargs):
-        self.llm_system = FusionLLMSystem(model_name, device, num_samples=num_samples, num_queries=num_queries, technique='fusion')
+        self.llm_system = FusionLLMSystem(model_name, device, num_samples=num_samples, num_queries=num_queries, technique='fusion', **kwargs)
         self.k = k
     
     def get_batch_size(self) -> int: return 250

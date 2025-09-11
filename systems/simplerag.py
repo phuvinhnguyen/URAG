@@ -7,7 +7,7 @@ from utils.storage import get_storage
 
 class SimpleRAGSystem(AbstractRAGSystem):    
     def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "cuda", **kwargs):
-        self.llm_system = SimpleLLMSystem(model_name, device, technique='rag')
+        self.llm_system = SimpleLLMSystem(model_name, device, technique='rag', **kwargs)
     
     def get_batch_size(self) -> int: return 20
 

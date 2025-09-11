@@ -19,7 +19,7 @@ class HyDERAGSystem(AbstractRAGSystem):
     """
     
     def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, **kwargs):
-        self.llm_system = HyDELLMSystem(model_name, device, num_samples=num_samples, technique='rag')
+        self.llm_system = HyDELLMSystem(model_name, device, num_samples=num_samples, technique='rag', **kwargs)
     
     def get_batch_size(self) -> int: return 50
     

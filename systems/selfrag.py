@@ -20,9 +20,9 @@ class SelfRAGSystem(AbstractRAGSystem):
     
     def __init__(self, model_name: str = "gpt2", device: str = "auto", **kwargs):
         """Initialize the Self-RAG system with an LLM and reflective retrieval."""
-        self.llm_system = SelfLLMSystem(model_name, device, technique='rag')
-        self.max_iterations = kwargs.get('max_iterations', 3)
-        self.relevance_threshold = kwargs.get('relevance_threshold', 0.7)
+        self.max_iterations = kwargs.pop('max_iterations', 3)
+        self.relevance_threshold = kwargs.pop('relevance_threshold', 0.7)
+        self.llm_system = SelfLLMSystem(model_name, device, technique='rag', **kwargs)
     
     def get_batch_size(self) -> int: return 1
     
