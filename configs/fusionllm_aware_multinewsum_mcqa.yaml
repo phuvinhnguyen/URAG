@@ -1,0 +1,9 @@
+system:
+  name: fusionllm
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B-Instruct
+    method: aware
+
+dataset: datasets/multinewsum_mcqa.json
+output: results/fusionllm_aware_meta-llama/Llama-3.1-8B-Instruct_multinewsum_mcqa_0.1

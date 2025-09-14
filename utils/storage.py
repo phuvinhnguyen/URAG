@@ -10,8 +10,8 @@ def get_library_documentation() -> List[str]:
 
 def get_proof_pile() -> List[str]:
     """Get proof-pile"""
-    dataset = load_dataset("hoskinson-center/proof-pile", split="train")
-    return [row["text"] for row in dataset]
+    dataset = load_dataset("DKYoon/proofpile2-200k", split="train")
+    return [row["input"] for row in dataset]
 
 def get_storage(names: List[str]) -> List[str]:
     """Get storage from name"""

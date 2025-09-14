@@ -23,6 +23,12 @@ local path: datasets/multinewsum_mcqa.json
 ## Scifact
 link: https://huggingface.co/datasets/allenai/scifact
 local path: datasets/scifact.json
+```bash
+#!/bin/bash
+curl -L -o ./scifact-mcqa.zip https://www.kaggle.com/api/v1/datasets/download/suzhentxt/scifact-mcqa
+unzip ./scifact-mcqa.zip
+```
+
 
 ## Healthver v
 link: https://huggingface.co/datasets/dwadden/healthver_entailment
@@ -39,7 +45,7 @@ link: https://huggingface.co/datasets/code-rag-bench/odex/
 local path: datasets/odex.json
 find similar answers
 
-## DialFact
+## DialFact v
 link: https://github.com/salesforce/DialFact
 Download link: https://www.kaggle.com/api/v1/datasets/download/suzhentxt/dialfact-mcqa-ver2
 local path: datasets/dialfact.json
@@ -52,7 +58,7 @@ unzip dialfact-mcqa.zip
 link: https://huggingface.co/datasets/JetBrains-Research/lca-commit-message-generation
 local path: datasets/commit_message_qa.json
 
-## Olympiad bench + MathPile docs
+## Olympiad bench + MathPile docs v
 link: https://huggingface.co/datasets/GAIR/MathPile
 link: huggingface.co/datasets/Hothan/OlympiadBench
 local path: datasets/OlympiadBench.json

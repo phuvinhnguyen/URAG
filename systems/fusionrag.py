@@ -28,7 +28,7 @@ class FusionRAGSystem(AbstractRAGSystem):
         self.llm_system = FusionLLMSystem(model_name, device, num_samples=num_samples, num_queries=num_queries, technique='fusion', **kwargs)
         self.k = k
     
-    def get_batch_size(self) -> int: return 250
+    def get_batch_size(self) -> int: return 20
     
     def _apply_reciprocal_rank_fusion(self, query_results: List[List[str]]) -> List[Tuple[str, float]]:
         doc_scores = defaultdict(float)

@@ -41,9 +41,10 @@ def _discover_systems() -> Dict[str, Any]:
                         break
                         
             except Exception as e:
-                print(f"Warning: Could not import system {module_name}: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
-    
+            
     return systems
 
 # Auto-discover available systems

@@ -21,4 +21,6 @@ datasets/crag*
 datasets/dialfact*
 datasets/health*
 
+dataset_extractions/
+experiments/
 comparisons/

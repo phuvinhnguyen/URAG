@@ -24,7 +24,7 @@ class SelfRAGSystem(AbstractRAGSystem):
         self.relevance_threshold = kwargs.pop('relevance_threshold', 0.7)
         self.llm_system = SelfLLMSystem(model_name, device, technique='rag', **kwargs)
     
-    def get_batch_size(self) -> int: return 1
+    def get_batch_size(self) -> int: return 20
     
     def filter_relevant_documents(self, questions: List[str], retrieved_docs: List[List[str]]) -> List[Dict[str, Any]]:
         """Filter documents based on relevance evaluation."""

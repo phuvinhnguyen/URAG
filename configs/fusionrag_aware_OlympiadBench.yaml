@@ -1,0 +1,9 @@
+system:
+  name: fusionrag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B-Instruct
+    method: aware
+
+dataset: datasets/OlympiadBench.json
+output: results/fusionrag_aware_meta-llama/Llama-3.1-8B-Instruct_olympiadbench_0.1

@@ -12,6 +12,7 @@ DATASETS_DIR="./datasets"
 EXPERIMENTS_DIR="./configs"
 MODEL_NAME="meta-llama/Llama-3.1-8B-Instruct"
 ALPHA="0.1"
+METHOD="aware"
 
 # Function to display usage
 usage() {
@@ -55,7 +56,7 @@ generate_config() {
     
     local dataset_name=$(dataset_to_config_name "$dataset_file")
     local output_name=$(dataset_to_output_name "$dataset_file")
-    local config_filename="${method_name}_${dataset_name}.yaml"
+    local config_filename="${method_name}_${METHOD}_${dataset_name}.yaml"
     local config_path="$output_dir/$config_filename"
     
     # Create the YAML content
@@ -65,37 +66,10 @@ system:
   alpha: $ALPHA
   args:
     model_name: $MODEL_NAME
+    method: $METHOD
 
 dataset: datasets/$dataset_file
-output: results/${method_name}_llama_3.1_8b_instruct_${output_name}
-EOF
-
-    echo "Generated: $config_path"
-}
-
-# Function to generate GraphRAG config (special case)
-generate_graphrag_config() {
-    local dataset_file="$1"
-    local output_dir="$2"
-    
-    local dataset_name=$(dataset_to_config_name "$dataset_file")
-    local output_name=$(dataset_to_output_name "$dataset_file")
-    local config_filename="graphrag_${dataset_name}.yaml"
-    local config_path="$output_dir/$config_filename"
-    
-    # GraphRAG has different structure with additional parameters
-    cat > "$config_path" << EOF
-system:
-  name: graphrag
-  alpha: $ALPHA
-  args:
-    model_name: Qwen/Qwen3-0.6B
-    auto_index: true
-    llm_model_id: Qwen/Qwen3-0.6B
-    indexing_method: standard
-
-dataset: datasets/$dataset_file
-output: results/graphrag_qwen3_0.6b_${output_name}
+output: results/${method_name}_${METHOD}/${MODEL_NAME}/${output_name}_${ALPHA}
 EOF
 
     echo "Generated: $config_path"
@@ -168,11 +142,7 @@ total_configs=0
 for method in "${methods_to_generate[@]}"; do
     echo "Generating configs for method: $method"
     for dataset in "${datasets[@]}"; do
-        if [ "$method" = "graphrag" ]; then
-            generate_graphrag_config "$dataset" "$EXPERIMENTS_DIR"
-        else
-            generate_config "$method" "$dataset" "$EXPERIMENTS_DIR"
-        fi
+        generate_config "$method" "$dataset" "$EXPERIMENTS_DIR"
         ((total_configs++))
     done
     echo ""

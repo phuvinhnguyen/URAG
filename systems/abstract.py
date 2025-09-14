@@ -103,7 +103,7 @@ class AbstractRAGSystem(ABC):
     def _generate_response_with_probabilities(self, prompt: str, options: List[str]):
         if getattr(self, 'method', 'normal') == 'aware':
             _, probs = self._generate_response_with_probabilities_normal(prompt, options)
-            confidence_text = ' Knowing that the agent\'s confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in probs.items()])
+            confidence_text = ' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in probs.items()]) + '. My answer to follow the format is:\n\n'
             return self._generate_response_with_probabilities_normal(prompt + confidence_text, options)
         else:
             return self._generate_response_with_probabilities_normal(prompt, options)
