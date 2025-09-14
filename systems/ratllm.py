@@ -1,63 +1,59 @@
 from systems.abstract import AbstractRAGSystem
 import torch
-import torch.nn.functional as F
-from typing import Dict, Any, List
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from typing import Dict, Any, List
 import re
 
-# RAT-specific prompts
-INITIAL_COT_PROMPT = """You are provided with a multiple choice question. Your task is to think step by step and provide your reasoning using a chain of thoughts approach.
-
-Please structure your response as follows:
-1. First, provide your initial reasoning step by step
-2. Then provide your final answer in the format Answer|X where X is your answer (A, B, C, D, ...)
+SYSTEM_PROMPT = """You are provided with a multiple choice question and various references. Your task is to answer the question succinctly, using format Answer|X (mandatory) where X is your answer for the multiple choice question, which can be A, B, C, D, ... Follow this format strictly because it is the only way to extract your inner thoughts. You must provide the final answer and finish the chat as soon as possible.
 
 For example:
 Question: What is the capital of France?
 A. London
-B. Berlin  
+B. Berlin
 C. Paris
 D. Madrid
-
-Let me think step by step:
-1. France is a country in Western Europe
-2. The capital of France is the city where the French government is located
-3. Paris is the largest city in France and serves as its political and cultural center
-4. London is the capital of the UK, Berlin is the capital of Germany, Madrid is the capital of Spain
-
 Answer|C
+
+Question: What is the result of 2 + 2?
+A. 3
+B. 4
+C. 5
+D. 6
+Answer|B
 """
 
-REVISION_PROMPT = """You are provided with a multiple choice question, your previous reasoning, and some additional relevant information. 
+RAT_REVISE_PROMPT = """You are tasked with revising a specific thought in a chain of reasoning using new evidence. Keep the reasoning structure and only revise the given thought. Always end with Answer|X where X is your answer.
 
-Your task is to revise your previous reasoning step by step using the new information, then provide your final answer.
+Instructions:
+1. Review the current reasoning so far
+2. Focus on revising ONLY the specific thought provided
+3. Use the evidence to improve or correct that thought
+4. Keep all other reasoning intact
+5. Provide the complete revised reasoning ending with Answer|X
 
-Previous reasoning: {previous_reasoning}
-
-Additional information: {retrieved_info}
-
-Please revise your reasoning considering this new information and provide your final answer in the format Answer|X where X is your answer (A, B, C, D, ...)
+Example:
+Current reasoning: "1. France is in Europe. 2. Paris is a major city. 3. Therefore the answer is C."
+Thought to revise: "Paris is a major city"
+Evidence: "Paris is the capital and largest city of France, serving as the country's political and cultural center."
+Revised reasoning: "1. France is in Europe. 2. Paris is the capital and largest city of France, serving as the political and cultural center. 3. Therefore the answer is C."
 """
 
 class RATLLMSystem(AbstractRAGSystem):
     """
-    RAT (Retrieval Augmented Thoughts) LLM system that implements iterative refinement of chain-of-thoughts.
+    RAT (Retrieval Augmented Thoughts) LLM system that supports chain-of-thought reasoning.
     
-    This system implements the RAT technique:
-    1. Generate initial zero-shot chain-of-thoughts
-    2. Iteratively revise each thought step with retrieved information
-    3. Refine reasoning based on relevant context
-    4. Generate final answer with improved reasoning
+    This system can be used standalone or as part of RATRAGSystem for retrieval-augmented reasoning.
     """
     
     def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B-Instruct", device: str = "cuda", 
-                 max_iterations: int = 2, max_new_tokens: int = 512, temperature: float = 0.1, 
+                 technique: str = "direct", max_new_tokens: int = 512, temperature: float = 0.1, 
                  method: str = 'normal'):
         self.device = device
-        self.max_iterations = max_iterations
+        self.technique = technique
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
         self.method = method
+        self.model_name = model_name
         
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, padding_side="left")
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -74,132 +70,158 @@ class RATLLMSystem(AbstractRAGSystem):
     def get_batch_size(self) -> int:
         return 1
     
-    def _generate_initial_cot(self, question: str) -> str:
-        """Generate initial chain-of-thoughts for the question."""
-        prompt = f"{question}\n\n{INITIAL_COT_PROMPT}"
-        
+    def _create_unified_prompt(self, system_message: str, user_message: str) -> str:
+        """Create unified prompt following the same pattern as other LLM systems."""
         try:
-            prompt = self.tokenizer.apply_chat_template([
-                {"role": "system", "content": "You are a helpful assistant that thinks step by step."},
-                {"role": "user", "content": prompt}
+            return self.tokenizer.apply_chat_template([
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message}
             ], tokenize=False, add_generation_prompt=True)
         except:
-            pass
-        
-        inputs = self.tokenizer(prompt, return_tensors="pt").to(self.device)
-        
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=self.max_new_tokens,
-                temperature=self.temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id
-            )
-        
-        generated_text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        # Extract only the generated part
-        generated_text = generated_text[len(self.tokenizer.decode(inputs['input_ids'][0], skip_special_tokens=True)):]
-        return generated_text.strip()
+            model_lower = self.model_name.lower()
+            
+            if "llama" in model_lower:
+                return f"<s>[INST] <<SYS>>\n{system_message}\n<</SYS>>\n\n{user_message} [/INST]\n\n"
+            elif "mistral" in model_lower:
+                return f"<s>[INST] {system_message}\n\n{user_message} [/INST]"
+            elif "falcon" in model_lower:
+                return f"User: {system_message}\n\n{user_message}\n\nAssistant:"
+            elif "mpt" in model_lower:
+                return f"<|im_start|>system\n{system_message}<|im_end|>\n<|im_start|>user\n{user_message}<|im_end|>\n<|im_start|>assistant\n"
+            elif any(x in model_lower for x in ["dialogpt", "gpt"]):
+                return f"{system_message}\n\n{user_message}\n\nResponse:"
+            else:
+                return f"### Instruction:\n{system_message}\n\n### Input:\n{user_message}\n\n### Response:"
     
-    def _revise_reasoning(self, question: str, previous_reasoning: str, retrieved_info: str, options: List[str]) -> tuple:
-        """Revise reasoning with retrieved information."""
-        revision_prompt = REVISION_PROMPT.format(
-            previous_reasoning=previous_reasoning,
-            retrieved_info=retrieved_info
-        )
+    def _generate_prompt(self, sample: Dict[str, Any]) -> str:
+        question = sample.get('question', '')
         
-        full_prompt = f"{question}\n\n{revision_prompt}"
+        if self.technique == 'cot':
+            system_message = SYSTEM_PROMPT + " Think step by step and provide detailed reasoning."
+            user_message = f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
+        elif self.technique == 'rag' or self.technique == 'rat':
+            context = sample.get('context', '')
+            if context:
+                system_message = SYSTEM_PROMPT + " Use the provided context to inform your answer."
+                user_message = f"Context information: {context}\n\nQuestion: {question}\n\nPlease provide your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
+            else:
+                system_message = SYSTEM_PROMPT
+                user_message = f"{question}\n\nPlease provide your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
+        else:
+            system_message = SYSTEM_PROMPT
+            user_message = f"{question}\n\nPlease provide your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
         
-        try:
-            full_prompt = self.tokenizer.apply_chat_template([
-                {"role": "system", "content": "You are a helpful assistant that revises reasoning based on new information."},
-                {"role": "user", "content": full_prompt}
-            ], tokenize=False, add_generation_prompt=True)
-        except:
-            pass
-        
-        return self._generate_response_with_probabilities(full_prompt, options)
+        return self._create_unified_prompt(system_message, user_message)
     
-    def _extract_reasoning_steps(self, text: str) -> List[str]:
-        """Extract individual reasoning steps from generated text."""
-        # Look for numbered steps or bullet points
-        steps = []
-        lines = text.split('\n')
+    def extract_thoughts(self, reasoning_text: str) -> List[str]:
+        """Extract individual thoughts from reasoning text."""
+        # Remove Answer|X part for processing
+        text = re.sub(r'Answer\|[A-Z].*$', '', reasoning_text, flags=re.MULTILINE).strip()
         
-        for line in lines:
-            line = line.strip()
-            if re.match(r'^\d+\.', line) or line.startswith('- ') or line.startswith('* '):
-                steps.append(line)
-            elif line and not line.startswith('Answer|'):
-                # Consider non-empty lines as reasoning steps
-                steps.append(line)
+        thoughts = []
         
-        return steps
+        # Method 1: Split by numbered steps (1., 2., 3., etc.)
+        numbered_pattern = r'(\d+\.\s*[^0-9]+?)(?=\d+\.|$)'
+        numbered_matches = re.findall(numbered_pattern, text, re.DOTALL)
+        if numbered_matches:
+            thoughts = [match.strip() for match in numbered_matches]
+        
+        # Method 2: Split by bullet points or dashes
+        elif '- ' in text or '* ' in text:
+            lines = text.split('\n')
+            current_thought = []
+            for line in lines:
+                line = line.strip()
+                if line.startswith('- ') or line.startswith('* '):
+                    if current_thought:
+                        thoughts.append(' '.join(current_thought))
+                    current_thought = [line]
+                elif line and current_thought:
+                    current_thought.append(line)
+            if current_thought:
+                thoughts.append(' '.join(current_thought))
+        
+        # Method 3: Split by double newlines or sentence boundaries
+        else:
+            # Split by double newlines first
+            paragraphs = text.split('\n\n')
+            for para in paragraphs:
+                # If paragraph is long, split by sentences
+                if len(para) > 100:
+                    sentences = re.split(r'[.!?]+', para)
+                    for sent in sentences:
+                        sent = sent.strip()
+                        if len(sent) > 20:  # Minimum thought length
+                            thoughts.append(sent)
+                else:
+                    para = para.strip()
+                    if len(para) > 20:
+                        thoughts.append(para)
+        
+        # Clean and filter thoughts
+        cleaned_thoughts = []
+        for thought in thoughts:
+            thought = thought.strip()
+            if len(thought) > 10 and not thought.startswith('Answer|'):
+                cleaned_thoughts.append(thought)
+        
+        return cleaned_thoughts[:10]  # Limit to max 10 thoughts
     
-    def _simulate_retrieval_for_step(self, question: str, reasoning_step: str) -> str:
-        """
-        Simulate retrieval for a reasoning step.
-        In a full RAT implementation, this would query external knowledge bases.
-        For now, we return a placeholder that encourages deeper reasoning.
-        """
-        # This is a simplified version - in real RAT, this would involve:
-        # 1. Formulating queries based on the reasoning step
-        # 2. Retrieving relevant documents
-        # 3. Extracting relevant information
+    def generate_query_for_thought(self, question: str, thought: str, reasoning_so_far: str) -> str:
+        """Generate search query for a specific thought."""
+        # Simple approach: combine question context with thought keywords
+        thought_clean = re.sub(r'^\d+\.\s*', '', thought)  # Remove numbering
+        thought_clean = re.sub(r'^[-*]\s*', '', thought_clean)  # Remove bullets
         
-        return f"Additional context for reasoning step: '{reasoning_step}' - Consider domain-specific knowledge and factual accuracy."
+        # Extract key phrases from thought (simple keyword extraction)
+        words = thought_clean.split()
+        key_words = [word for word in words if len(word) > 3 and word.lower() not in 
+                    ['this', 'that', 'with', 'from', 'they', 'have', 'been', 'were', 'will']]
+        
+        if len(key_words) > 3:
+            query = f"{question[:100]} {' '.join(key_words[:5])}"
+        else:
+            query = f"{question[:100]} {thought_clean[:100]}"
+        
+        return query.strip()
+    
+    def revise_thought_with_evidence(self, question: str, current_reasoning: str, 
+                                   thought_to_revise: str, evidence: str, options: List[str]) -> str:
+        """Revise a specific thought using evidence while preserving overall reasoning structure."""
+        system_message = RAT_REVISE_PROMPT
+        user_message = f"""Question: {question}
+
+Current reasoning so far:
+{current_reasoning}
+
+Thought to revise: {thought_to_revise}
+
+Evidence: {evidence}
+
+Please revise ONLY the specified thought using the evidence. Keep all other reasoning intact and provide the complete revised reasoning ending with Answer|X where X is your answer for the multiple choice question."""
+        
+        prompt = self._create_unified_prompt(system_message, user_message)
+        
+        # Use lower temperature for revision to be more conservative
+        original_temp = self.temperature
+        self.temperature = min(0.3, self.temperature)
+        
+        response, _ = self._generate_response_with_probabilities(prompt, options)
+        
+        # Restore original temperature
+        self.temperature = original_temp
+        
+        return response
     
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process a single sample using RAT methodology."""
-        question = sample.get('question', '')
-        options = sample.get('options', ['A', 'B', 'C', 'D'])
-        
-        # Step 1: Generate initial chain-of-thoughts
-        initial_reasoning = self._generate_initial_cot(question)
-        current_reasoning = initial_reasoning
-        
-        reasoning_history = [{"iteration": 0, "reasoning": initial_reasoning, "type": "initial"}]
-        
-        # Step 2: Iteratively refine reasoning
-        for iteration in range(1, self.max_iterations + 1):
-            # Extract reasoning steps
-            reasoning_steps = self._extract_reasoning_steps(current_reasoning)
-            
-            # Simulate retrieval for each step (in real implementation, this would be actual retrieval)
-            retrieved_info_list = []
-            for step in reasoning_steps:
-                retrieved_info = self._simulate_retrieval_for_step(question, step)
-                retrieved_info_list.append(retrieved_info)
-            
-            # Combine retrieved information
-            combined_retrieved_info = "\n".join(retrieved_info_list)
-            
-            # Revise reasoning with retrieved information
-            revised_response, conformal_probabilities = self._revise_reasoning(
-                question, current_reasoning, combined_retrieved_info, options
-            )
-            
-            current_reasoning = revised_response
-            reasoning_history.append({
-                "iteration": iteration,
-                "reasoning": revised_response,
-                "retrieved_info": combined_retrieved_info,
-                "type": "revision"
-            })
-        
-        # Extract final answer
-        final_response, final_probabilities = self._generate_response_with_probabilities(
-            f"{question}\n\nFinal reasoning: {current_reasoning}\n\nPlease provide your final answer in the format Answer|X where X is your answer (A, B, C, D, ...)",
-            options
-        )
+        prompt = self._generate_prompt(sample)
+        options = sample.get('options', [])
+        response, conformal_probabilities = self._generate_response_with_probabilities(prompt, options)
         
         return {
             'id': sample.get('id', 'unknown'),
-            'generated_response': final_response,
-            'predicted_answer': max(final_probabilities.items(), key=lambda x: x[1])[0],
-            'conformal_probabilities': final_probabilities,
-            'reasoning_history': reasoning_history,
-            'technique': 'rat_llm',
-            'iterations_used': self.max_iterations
+            'generated_response': response,
+            'predicted_answer': max(conformal_probabilities.items(), key=lambda x: x[1])[0],
+            'conformal_probabilities': conformal_probabilities,
+            'technique': self.technique
         }
