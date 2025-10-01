@@ -1,359 +1,406 @@
 from systems.abstract import AbstractRAGSystem
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from systems.simplellm import SimpleLLMSystem
+from typing import Dict, Any, List, Optional
 from loguru import logger
-import re
-import numpy as np
-import torch.nn.functional as F
-from typing import Dict, Any, List, Tuple
-from collections import Counter
 import pandas as pd
+import os
+import sys
+import asyncio
+import tempfile
 from pathlib import Path
+
+# Add GraphRAG to path for compatibility
+graphrag_path = os.path.join(os.path.dirname(__file__), '..', 'graphrag')
+sys.path.insert(0, graphrag_path)
+sys.path.insert(0, os.path.join(graphrag_path, 'graphrag'))
+
+try:
+    from graphrag.query.indexer_adapters import (
+        read_indexer_entities,
+        read_indexer_relationships,
+        read_indexer_reports,
+        read_indexer_text_units,
+    )
+    from graphrag.api.index import build_index
+    from graphrag.config.create_graphrag_config import create_graphrag_config
+    from graphrag.config.enums import IndexingMethod
+    GRAPHRAG_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"GraphRAG not available: {e}")
+    GRAPHRAG_AVAILABLE = False
+
 
 class GraphLLMSystem(AbstractRAGSystem):
     """
-    GraphRAG-enhanced LLM system that uses knowledge graph context.
+    GraphLLM v2 system - Direct LLM with GraphRAG knowledge enhancement.
     
-    This system leverages structured knowledge from GraphRAG entities and relationships
-    to provide enhanced context for LLM responses, following the existing patterns.
+    Unlike GraphRAG v2 which uses retrieval, this system directly incorporates
+    knowledge graph information into prompts without retrieval-based RAG.
+    It follows the SimpleLLM pattern but with graph-based context enhancement.
     """
     
     def __init__(self, 
-                 model_name: str = "microsoft/DialoGPT-medium", 
-                 device: str = "auto", 
-                 num_samples: int = 20, 
-                 technique: str = "graphrag",
-                 graphrag_data_path: str = None):
-        """Initialize the GraphRAG-enhanced LLM system."""
-        if device == "auto":
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        else:
-            self.device = torch.device(device)
-            
-        self.num_samples = num_samples
-        self.technique = technique
-        self.graphrag_data_path = graphrag_data_path
-
-        logger.info(f"Loading model {model_name} on {self.device}")
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name)
-        self.model.to(self.device)
-        self.model.eval()
+                 model_name: str = "meta-llama/Llama-3.1-8B-Instruct", 
+                 device: str = "cuda",
+                 # Graph parameters
+                 community_level: int = 2,
+                 max_entities: int = 10,
+                 max_relationships: int = 10,
+                 max_reports: int = 3,
+                 # Indexing parameters
+                 auto_index: bool = True,
+                 **kwargs):
+        """Initialize GraphLLM v2 system."""
         
-        # Add pad token if not present
-        if self.tokenizer.pad_token is None:
-            self.tokenizer.pad_token = self.tokenizer.eos_token
-            
-        # Load GraphRAG knowledge data
+        # Initialize underlying LLM system
+        self.llm_system = SimpleLLMSystem(
+            model_name=model_name,
+            device=device,
+            technique='direct',  # Direct prompting, not RAG
+            **kwargs
+        )
+        
+        # Graph configuration
+        self.community_level = community_level
+        self.max_entities = max_entities
+        self.max_relationships = max_relationships
+        self.max_reports = max_reports
+        
+        # Storage for indexed data
+        self.entities = None
+        self.relationships = None
+        self.reports = None
+        self.text_units = None
         self.entities_df = None
         self.relationships_df = None
-        self.community_reports_df = None
+        self.reports_df = None
         
-        if graphrag_data_path:
-            self._load_graphrag_data(graphrag_data_path)
+        # Indexing state
+        self.indexed = False
+        self.indexed_data_path = None
+        self.auto_index = auto_index
     
-    def _load_graphrag_data(self, data_path: str):
-        """Load GraphRAG generated data files."""
+    def get_batch_size(self) -> int:
+        """Return batch size for processing."""
+        return 20  # Process multiple samples efficiently
+    
+    def _extract_documents_from_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Extract documents from samples for indexing."""
+        documents = []
+        
+        for sample in samples:
+            sample_id = sample.get('id', f'sample_{len(documents)}')
+            
+            # Extract from search_results if available
+            if 'search_results' in sample:
+                for i, result in enumerate(sample['search_results']):
+                    if 'page_result' in result and result['page_result']:
+                        documents.append({
+                            'id': f"{sample_id}_doc_{i}",
+                            'text': result['page_result'],
+                            'sample_id': sample_id
+                        })
+            
+            # Also include question as a document for context
+            if 'question' in sample and sample['question']:
+                documents.append({
+                    'id': f"{sample_id}_question",
+                    'text': sample['question'],
+                    'sample_id': sample_id
+                })
+        
+        logger.info(f"Extracted {len(documents)} documents from {len(samples)} samples")
+        return documents
+    
+    def _prepare_documents_for_indexing(self, documents: List[Dict[str, Any]], output_dir: str):
+        """Prepare documents as text files for GraphRAG indexing."""
+        input_dir = Path(output_dir) / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Clear existing files
+        for file in input_dir.glob("*.txt"):
+            file.unlink()
+        
+        # Save documents as text files
+        for doc in documents:
+            file_path = input_dir / f"{doc['id']}.txt"
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(doc['text'])
+        
+        logger.info(f"Prepared {len(documents)} documents for indexing in {input_dir}")
+    
+    async def _index_documents(self, documents: List[Dict[str, Any]]) -> bool:
+        """Index documents using GraphRAG."""
+        if not GRAPHRAG_AVAILABLE:
+            logger.error("GraphRAG not available for indexing")
+            return False
+        
+        try:
+            # Create temporary directory for indexing
+            output_dir = tempfile.mkdtemp(prefix="graphllm_v2_")
+            logger.info(f"Creating GraphRAG index in: {output_dir}")
+            
+            # Prepare documents
+            self._prepare_documents_for_indexing(documents, output_dir)
+            
+            # Create GraphRAG config
+            config_values = {
+                "root_dir": output_dir,
+                "input": {
+                    "type": "files",
+                    "glob": "**/*.txt",
+                    "encoding": "utf-8"
+                },
+                "output": {
+                    "base_dir": output_dir,
+                    "format": "parquet"
+                }
+            }
+            
+            config = create_graphrag_config(values=config_values)
+            
+            # Run indexing
+            logger.info("Starting GraphRAG indexing...")
+            results = await build_index(
+                config=config,
+                method=IndexingMethod.Standard,
+                is_update_run=False,
+                memory_profile=False
+            )
+            
+            # Check results
+            success = all(not result.errors for result in results)
+            if success:
+                self.indexed_data_path = output_dir
+                logger.info(f"GraphRAG indexing completed successfully: {output_dir}")
+                return True
+            else:
+                logger.error("GraphRAG indexing failed with errors")
+                for result in results:
+                    if result.errors:
+                        for error in result.errors:
+                            logger.error(f"Indexing error: {error}")
+                return False
+        
+        except Exception as e:
+            logger.error(f"Error during GraphRAG indexing: {e}")
+            return False
+    
+    def _load_indexed_data(self, data_path: str):
+        """Load indexed data from GraphRAG output."""
         try:
             data_path = Path(data_path)
             
-            # Load entities
-            entities_file = data_path / "entities.parquet"
-            if entities_file.exists():
-                self.entities_df = pd.read_parquet(entities_file)
-                logger.info(f"Loaded {len(self.entities_df)} entities from GraphRAG data")
+            # Load raw dataframes
+            self.entities_df = pd.read_parquet(data_path / "entities.parquet")
+            self.relationships_df = pd.read_parquet(data_path / "relationships.parquet")
             
-            # Load relationships
-            relationships_file = data_path / "relationships.parquet"
-            if relationships_file.exists():
-                self.relationships_df = pd.read_parquet(relationships_file)
-                logger.info(f"Loaded {len(self.relationships_df)} relationships from GraphRAG data")
+            # Load community reports if available
+            if (data_path / "community_reports.parquet").exists():
+                self.reports_df = pd.read_parquet(data_path / "community_reports.parquet")
+                logger.info(f"Loaded {len(self.reports_df)} community reports")
+            else:
+                self.reports_df = pd.DataFrame()
             
-            # Load community reports
-            reports_file = data_path / "community_reports.parquet"
-            if reports_file.exists():
-                self.community_reports_df = pd.read_parquet(reports_file)
-                logger.info(f"Loaded {len(self.community_reports_df)} community reports from GraphRAG data")
-                
+            # Also load processed objects for compatibility
+            community_df = pd.read_parquet(data_path / "communities.parquet") if (data_path / "communities.parquet").exists() else pd.DataFrame()
+            self.entities = read_indexer_entities(self.entities_df, community_df, self.community_level)
+            self.relationships = read_indexer_relationships(self.relationships_df)
+            
+            if not self.reports_df.empty:
+                self.reports = read_indexer_reports(self.reports_df, self.entities_df, self.community_level)
+            else:
+                self.reports = []
+            
+            self.indexed = True
+            logger.info(f"Loaded GraphRAG data: {len(self.entities)} entities, {len(self.relationships)} relationships, {len(self.reports)} reports")
+            
         except Exception as e:
-            logger.warning(f"Could not load GraphRAG data from {data_path}: {e}")
+            logger.error(f"Error loading indexed data: {e}")
+            self.indexed = False
     
-    def get_batch_size(self) -> int:
-        """Return batch size of 1 for this simple implementation."""
-        return 1
-    
-    def _extract_relevant_entities(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Extract relevant entities based on query similarity."""
-        if self.entities_df is None:
+    def _find_relevant_entities(self, question: str) -> List[Dict[str, Any]]:
+        """Find entities relevant to the question using simple keyword matching."""
+        if self.entities_df is None or self.entities_df.empty:
             return []
         
+        question_lower = question.lower()
         relevant_entities = []
-        query_lower = query.lower()
         
-        # Simple keyword matching for entity relevance
         for _, entity in self.entities_df.iterrows():
             entity_title = str(entity.get('title', '')).lower()
-            entity_description = str(entity.get('description', '')).lower()
+            entity_desc = str(entity.get('description', '')).lower()
             
-            # Calculate simple relevance score based on keyword overlap
+            # Simple relevance scoring
             relevance_score = 0
-            if entity_title in query_lower or any(word in entity_title for word in query_lower.split()):
-                relevance_score += 2
-            if any(word in entity_description for word in query_lower.split()):
+            
+            # Title matches get high score
+            if entity_title in question_lower or any(word in entity_title for word in question_lower.split() if len(word) > 2):
+                relevance_score += 3
+            
+            # Description matches get lower score
+            if any(word in entity_desc for word in question_lower.split() if len(word) > 2):
                 relevance_score += 1
-                
+            
             if relevance_score > 0:
                 relevant_entities.append({
                     'title': entity.get('title', ''),
                     'description': entity.get('description', ''),
+                    'type': entity.get('type', 'ENTITY'),
                     'relevance_score': relevance_score
                 })
         
-        # Sort by relevance and return top_k
+        # Sort by relevance and return top entities
         relevant_entities.sort(key=lambda x: x['relevance_score'], reverse=True)
-        return relevant_entities[:top_k]
+        return relevant_entities[:self.max_entities]
     
-    def _extract_relevant_relationships(self, entities: List[str], top_k: int = 5) -> List[Dict[str, Any]]:
-        """Extract relationships involving the relevant entities."""
-        if self.relationships_df is None:
+    def _find_relevant_relationships(self, entities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Find relationships involving the relevant entities."""
+        if self.relationships_df is None or self.relationships_df.empty:
             return []
         
+        entity_titles = set(entity['title'].lower() for entity in entities)
         relevant_relationships = []
-        entity_titles = set(entity.lower() for entity in entities)
         
-        for _, relationship in self.relationships_df.iterrows():
-            source = str(relationship.get('source', '')).lower()
-            target = str(relationship.get('target', '')).lower()
+        for _, rel in self.relationships_df.iterrows():
+            source = str(rel.get('source', '')).lower()
+            target = str(rel.get('target', '')).lower()
             
             if source in entity_titles or target in entity_titles:
                 relevant_relationships.append({
-                    'source': relationship.get('source', ''),
-                    'target': relationship.get('target', ''),
-                    'description': relationship.get('description', ''),
-                    'weight': relationship.get('weight', 1.0)
+                    'source': rel.get('source', ''),
+                    'target': rel.get('target', ''),
+                    'description': rel.get('description', ''),
+                    'weight': rel.get('weight', 1.0)
                 })
         
-        # Sort by weight and return top_k
+        # Sort by weight and return top relationships
         relevant_relationships.sort(key=lambda x: x.get('weight', 0), reverse=True)
-        return relevant_relationships[:top_k]
+        return relevant_relationships[:self.max_relationships]
     
-    def _build_graph_context(self, query: str) -> str:
-        """Build structured context from GraphRAG knowledge graph."""
+    def _find_relevant_reports(self) -> List[Dict[str, Any]]:
+        """Get top community reports for general context."""
+        if self.reports_df is None or self.reports_df.empty:
+            return []
+        
+        relevant_reports = []
+        for _, report in self.reports_df.head(self.max_reports).iterrows():
+            relevant_reports.append({
+                'title': report.get('title', ''),
+                'summary': report.get('summary', ''),
+                'rating': report.get('rating', 0.0),
+                'rating_explanation': report.get('rating_explanation', '')
+            })
+        
+        return relevant_reports
+    
+    def _build_knowledge_context(self, question: str) -> str:
+        """Build knowledge context from graph data without retrieval."""
+        if not self.indexed:
+            return ""
+        
         context_parts = []
         
-        # Get relevant entities
-        relevant_entities = self._extract_relevant_entities(query)
+        # Find relevant entities
+        relevant_entities = self._find_relevant_entities(question)
         if relevant_entities:
-            context_parts.append("Relevant Entities:")
+            context_parts.append("Relevant Knowledge Entities:")
             for entity in relevant_entities:
-                context_parts.append(f"- {entity['title']}: {entity['description']}")
+                context_parts.append(f"- {entity['title']} ({entity['type']}): {entity['description']}")
         
-        # Get relevant relationships
-        entity_titles = [entity['title'] for entity in relevant_entities]
-        relevant_relationships = self._extract_relevant_relationships(entity_titles)
+        # Find relevant relationships
+        relevant_relationships = self._find_relevant_relationships(relevant_entities)
         if relevant_relationships:
             context_parts.append("\nRelevant Relationships:")
             for rel in relevant_relationships:
-                context_parts.append(f"- {rel['source']} -> {rel['target']}: {rel['description']}")
+                context_parts.append(f"- {rel['source']} ← → {rel['target']}: {rel['description']}")
         
-        # Get relevant community insights
-        if self.community_reports_df is not None and not self.community_reports_df.empty:
-            # Simple approach: take the first few community summaries
-            community_summaries = self.community_reports_df['summary'].head(2).tolist()
-            if community_summaries:
-                context_parts.append("\nCommunity Insights:")
-                for i, summary in enumerate(community_summaries, 1):
-                    context_parts.append(f"- Community {i}: {str(summary)[:200]}...")
+        # Add community insights
+        relevant_reports = self._find_relevant_reports()
+        if relevant_reports:
+            context_parts.append("\nCommunity Analysis:")
+            for report in relevant_reports:
+                summary = report['summary'][:300] + "..." if len(report['summary']) > 300 else report['summary']
+                context_parts.append(f"- {report['title']}: {summary}")
         
-        return "\n".join(context_parts) if context_parts else ""
+        return "\n\n".join(context_parts) if context_parts else ""
     
-    def _generate_prompt(self, sample: Dict[str, Any]) -> str:
-        """Generate prompt with GraphRAG context enhancement."""
+    def _enhance_sample_with_knowledge(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        """Enhance sample with knowledge graph context."""
         question = sample.get('question', '')
-        technique = self.technique
         
-        # Get existing context (including retrieved documents from GraphRAG)
-        existing_context = sample.get('context', '')
+        # Build knowledge context
+        knowledge_context = self._build_knowledge_context(question)
         
-        # Build graph-based context
-        graph_context = self._build_graph_context(question)
+        # Create enhanced sample
+        enhanced_sample = sample.copy()
         
-        if technique == 'graphrag':
-            # If we have retrieved documents context, prioritize it
+        if knowledge_context:
+            # Add knowledge context to existing context if any
+            existing_context = sample.get('context', '')
             if existing_context:
-                prompt = f"""Based on the following context and knowledge, please answer the question.
-
-Context:
-{existing_context}
-
-Question: {question}
-
-Please provide your final answer in the format <answer>X</answer> where X is your answer, using information from the provided context."""
-            elif graph_context:
-                prompt = f"""Based on the following knowledge graph context, please answer the question.
-
-Knowledge Graph Context:
-{graph_context}
-
-Question: {question}
-
-Please provide your final answer in the format <answer>X</answer> where X is your answer, incorporating the relevant knowledge from the graph context."""
+                enhanced_sample['context'] = f"{knowledge_context}\n\nAdditional Context:\n{existing_context}"
             else:
-                # Fallback to direct prompting
-                prompt = f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
-        elif technique == 'cot':
-            return f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format <answer>X</answer> where X is your answer."
-        else:
-            # Direct prompting
-            return f"{question}\n\nPlease provide your final answer in the format <answer>X</answer> where X is your answer."
+                enhanced_sample['context'] = knowledge_context
+            
+            enhanced_sample['technique'] = 'graphllm_v2'
         
-        return prompt
+        return enhanced_sample
     
-    def _generate_response(self, prompt: str, max_length: int = 200, temperature: float = 0.7) -> str:
-        """Generate response from the LLM."""
-        inputs = self.tokenizer.encode(prompt, return_tensors="pt", truncation=True, max_length=512)
-        inputs = inputs.to(self.device)
+    def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Process a batch of samples with GraphLLM v2 enhancement."""
         
-        with torch.no_grad():
-            outputs = self.model.generate(
-                inputs,
-                max_length=inputs.shape[1] + max_length,
-                num_return_sequences=1,
-                temperature=temperature,
-                do_sample=True,
-                pad_token_id=self.tokenizer.eos_token_id
-            )
-        
-        response = self.tokenizer.decode(outputs[0][inputs.shape[1]:], skip_special_tokens=True)
-        return response.strip()
-    
-    def _find_answer_positions(self, text: str) -> Tuple[int, int]:
-        """Find the start and end positions of <answer>...</answer> tags."""
-        pattern = r'<answer>(.*?)</answer>'
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            return match.start(1), match.end(1)
-        return -1, -1
-    
-    def _extract_answer(self, response: str) -> str:
-        """Extract answer from response."""
-        start_pos, end_pos = self._find_answer_positions(response)
-        if start_pos != -1:
-            return response[start_pos:end_pos].strip()
-        return "Unknown"
-    
-    def _generate_multiple_responses(self, prompt: str, num_samples: int) -> List[str]:
-        """Generate multiple responses for empty options case."""
-        responses = []
-        for i in range(num_samples):
-            # Use higher temperature to create diversity
-            response = self._generate_response(prompt, temperature=0.8)
-            answer = self._extract_answer(response)
-            if answer != "Unknown":
-                responses.append(answer)
-            logger.debug(f"Sample {i+1}/{num_samples}: {answer}")
-        return responses
-    
-    def _compute_probabilities_from_samples(self, answers: List[str]) -> Tuple[Dict[str, float], List[str]]:
-        """Compute probabilities from multiple answer samples."""
-        if not answers:
-            return {}, []
-        
-        # Count frequency of each answer
-        answer_counts = Counter(answers)
-        total_count = len(answers)
-        
-        # Calculate probabilities
-        probabilities = {}
-        unique_options = list(answer_counts.keys())
-        
-        for answer, count in answer_counts.items():
-            probabilities[answer] = count / total_count
-        
-        logger.info(f"Generated {len(unique_options)} unique options from {total_count} samples: {answer_counts}")
-        
-        return probabilities, unique_options
-    
-    def _compute_option_probabilities(self, response: str, options: List[str]) -> Dict[str, float]:
-        """Compute softmax probabilities for each option."""
-        start_pos, end_pos = self._find_answer_positions(response + '<answer>A</answer>')
-        
-        if start_pos == -1:
-            # If no answer format found, return uniform distribution
-            uniform_prob = 1.0 / len(options)
-            return {option: uniform_prob for option in options}
-        
-        inputs = self.tokenizer.encode(response[:start_pos], return_tensors="pt", truncation=True, max_length=512).to(self.device)
-        
-        with torch.no_grad():
-            logits = self.model(inputs).logits[0, -1, :]
-
-        option_tokens = [self.tokenizer.encode(option, add_special_tokens=False)[0] for option in options]
-
-        logits = F.softmax(logits[option_tokens], dim=0)
-
-        return {option: logits[i].item() for i, option in enumerate(options)}
-    
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process a single sample through the GraphRAG-enhanced LLM system."""
-        # Generate prompt with graph context
-        prompt = self._generate_prompt(sample)
-        logger.info(f"GraphLLM Prompt used: {prompt[:500]}...")
-        
-        # Extract options from the sample
-        options = sample.get('options', [])
-        
-        if not options:
-            # Case 1: Empty options - generate multiple responses and compute frequency-based probabilities
-            logger.info(f"Empty options detected. Generating {self.num_samples} responses...")
+        # Auto-index if needed and enabled
+        if not self.indexed and self.auto_index:
+            logger.info("Auto-indexing samples for GraphLLM v2...")
             
-            # Generate multiple responses
-            answers = self._generate_multiple_responses(prompt, self.num_samples)
+            # Extract documents from samples
+            documents = self._extract_documents_from_samples(samples)
             
-            # Compute probabilities from frequency
-            option_probabilities, generated_options = self._compute_probabilities_from_samples(answers)
+            if documents:
+                # Run async indexing
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    success = loop.run_until_complete(self._index_documents(documents))
+                    if success and self.indexed_data_path:
+                        self._load_indexed_data(self.indexed_data_path)
+                finally:
+                    loop.close()
             
-            # Get the most frequent answer as predicted answer
-            if option_probabilities:
-                predicted_answer = max(option_probabilities.items(), key=lambda x: x[1])[0]
-            else:
-                predicted_answer = "Unknown"
-            
-            # Generate one final response for display
-            final_response = self._generate_response(prompt, temperature=0.1)
-            
-            return {
-                'id': sample.get('id', 'unknown'),
-                'generated_response': final_response,
-                'predicted_answer': predicted_answer,
-                'option_probabilities': option_probabilities,
-                'num_samples_generated': len(answers),
-                'prompt_used': prompt,
-                'technique': self.technique,
-                'method': 'frequency_based_with_graph',
-                'graph_enhanced': self.graphrag_data_path is not None
-            }
-        else:
-            # Case 2: Options provided - use original logit-based method
-            logger.info(f"Using provided options: {options}")
-            
-            # Generate response
-            response = self._generate_response(prompt, temperature=0.1)
-            
-            # Compute option probabilities using logits
-            option_probabilities = self._compute_option_probabilities(response, options)
-            
-            # Extract the predicted answer
-            predicted_answer = max(option_probabilities.items(), key=lambda x: x[1])[0]
-            
-            return {
-                'id': sample.get('id', 'unknown'),
-                'generated_response': response,
-                'predicted_answer': predicted_answer,
-                'option_probabilities': option_probabilities,
-                'provided_options': options,
-                'prompt_used': prompt,
-                'technique': self.technique,
-                'method': 'logit_based_with_graph',
-                'graph_enhanced': self.graphrag_data_path is not None
-            }
+            if not self.indexed:
+                logger.warning("Failed to index samples, falling back to simple LLM")
+                return self.llm_system.batch_process_samples(samples)
+        
+        results = []
+        
+        for sample in samples:
+            try:
+                # Enhance sample with knowledge graph context
+                enhanced_sample = self._enhance_sample_with_knowledge(sample)
+                
+                # Process through LLM system
+                result = self.llm_system.process_sample(enhanced_sample)
+                
+                # Add GraphLLM v2 metadata
+                result.update({
+                    'system_type': 'graphllm_v2',
+                    'knowledge_enhanced': self.indexed,
+                    'entities_available': len(self.entities_df) if self.entities_df is not None else 0,
+                    'relationships_available': len(self.relationships_df) if self.relationships_df is not None else 0,
+                    'reports_available': len(self.reports_df) if self.reports_df is not None else 0,
+                })
+                
+                results.append(result)
+                
+            except Exception as e:
+                logger.error(f"Error processing sample {sample.get('id', 'unknown')}: {e}")
+                # Fallback to simple LLM
+                fallback_result = self.llm_system.process_sample(sample)
+                fallback_result.update({
+                    'system_type': 'graphllm_v2_fallback',
+                    'error': str(e)
+                })
+                results.append(fallback_result)
+        
+        return results

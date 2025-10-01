@@ -19,6 +19,7 @@ rm mcqa-crag.zip
 
 ## Multinew Sum v
 local path: datasets/multinewsum_mcqa.json
+Link: https://huggingface.co/datasets/alexfabbri/multi_news
 
 ## Scifact
 link: https://huggingface.co/datasets/allenai/scifact

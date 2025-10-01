@@ -1,0 +1,10 @@
+system:
+  name: fidrag
+  alpha: 0.1
+  args:
+    model_name: google/flan-t5-base
+    fid_model_name: Intel/fid_flan_t5_base_nq
+    method: aware
+
+dataset: datasets/dialfact.json
+output: results/fidrag/aware/flan_t5_base/dialfact_0.1

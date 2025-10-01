@@ -1,0 +1,9 @@
+system:
+  name: selfrag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.2-3B-Instruct
+    method: normal
+
+dataset: datasets/crag_task_1_and_2_mcqa.json
+output: results/selfrag/normal/llama_3.2_3b_instruct/crag_task_1_and_2_mcqa_0.1

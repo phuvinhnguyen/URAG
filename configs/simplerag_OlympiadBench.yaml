@@ -1,8 +1,0 @@
-system:
-  name: simplerag
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.1-8B-Instruct
-
-dataset: datasets/OlympiadBench.json
-output: results/simplerag_llama_3.1_8b_instruct_olympiadbench

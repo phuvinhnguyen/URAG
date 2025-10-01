@@ -18,3 +18,6 @@ faiss-cpu>=1.7.4
 lxml>=4.9.3
 blingfire>=0.1.7
 accelerate>=1.10.1
+neo4j==5.28.2
+# nano_db==0.0.4.3
+haystack-ai>=0.2.0

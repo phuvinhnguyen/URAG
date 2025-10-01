@@ -1,0 +1,9 @@
+system:
+  name: replugrag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B-Instruct
+    method: aware
+
+dataset: datasets/odex.json
+output: results/replugrag/aware/llama_3.1_8b_instruct/odex_0.1

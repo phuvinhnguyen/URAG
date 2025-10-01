@@ -1,0 +1,9 @@
+system:
+  name: ratrag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B-Instruct
+    method: aware
+
+dataset: datasets/multinewsum_mcqa.json
+output: results/ratrag/aware/llama_3.1_8b_instruct/multinewsum_mcqa_0.1

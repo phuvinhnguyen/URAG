@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run all experiments in URAG/configs with concurrency, skipping running or finished ones.
-# Finished experiments are detected by checking if their output directory exists and contains files.
+# Run all experiments in URAG/configs with concurrency, skipping finished ones.
+# Finished experiments are detected by checking if their output directory contains
+# result files like calibration, test, or evaluate files.
 # Usage:
 #   ./URAG/run_all.sh [CONFIG_DIR] [MAX_JOBS]
 # Defaults:
@@ -13,28 +14,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CONFIG_DIR="${1:-$SCRIPT_DIR/configs}"
 MAX_JOBS="${2:-${MAX_JOBS:-1}}"
-STATUS_DIR="$SCRIPT_DIR/.run_status"
-LOG_DIR="$SCRIPT_DIR/logs"
 CLI_PY="$SCRIPT_DIR/cli.py"
 
-mkdir -p "$STATUS_DIR" "$LOG_DIR"
-
-safe_name() {
-  # Create a filesystem-safe unique name for a path
-  local path="$1"
-  # Prefer md5sum for stability
-  if command -v md5sum >/dev/null 2>&1; then
-    echo -n "$path" | md5sum | awk '{print $1}'
-  else
-    # Fallback: replace slashes
-    echo "$path" | sed 's#[/ ]#_#g'
-  fi
-}
-
-lock_file() {
-  local cfg="$1"
-  echo "$STATUS_DIR/$(safe_name "$cfg").lock"
-}
 
 get_output_dir() {
   local cfg="$1"
@@ -50,27 +31,30 @@ get_output_dir() {
 is_experiment_done() {
   local cfg="$1"
   local output_dir="$(get_output_dir "$cfg")"
-  # Check if output directory exists and contains results
-  [[ -d "$output_dir" ]] && [[ -n "$(find "$output_dir" -mindepth 1 -print -quit 2>/dev/null)" ]]
-}
-
-is_pid_running() {
-  local pid="$1"
-  if [[ -z "$pid" ]]; then return 1; fi
-  if kill -0 "$pid" >/dev/null 2>&1; then
+  
+  # Check if output directory exists
+  if [[ ! -d "$output_dir" ]]; then
+    return 1
+  fi
+  
+  # Check for specific result files that indicate completion
+  # Look for files containing 'calibration', 'test', or 'evaluate' in their names
+  if find "$output_dir" -type f \( -name "*calibration*" -o -name "*test*" -o -name "*evaluate*" \) -print -quit 2>/dev/null | grep -q .; then
     return 0
   fi
+  
   return 1
 }
 
-is_already_running_elsewhere() {
-  # Best-effort: detect any python process running cli.py with this config
+is_already_running() {
+  # Check if any python process is running cli.py with this config
   local cfg="$1"
+  local cfg_basename="$(basename "$cfg")"
+  
   if command -v pgrep >/dev/null 2>&1; then
-    pgrep -fal "python .*cli.py .*--config .*$(printf '%q' "$cfg")" >/dev/null 2>&1 && return 0 || true
-    pgrep -fal "python .*URAG/cli.py .*--config .*$(printf '%q' "$cfg")" >/dev/null 2>&1 && return 0 || true
+    pgrep -fal "python.*cli.py.*--config.*$cfg_basename" >/dev/null 2>&1 && return 0 || true
   else
-    ps aux | grep -E "python .*cli.py .*--config .*$(printf '%q' "$cfg")" | grep -v grep >/dev/null 2>&1 && return 0 || true
+    ps aux | grep -E "python.*cli.py.*--config.*$cfg_basename" | grep -v grep >/dev/null 2>&1 && return 0 || true
   fi
   return 1
 }
@@ -84,45 +68,23 @@ ensure_slot() {
 
 run_one() {
   local cfg="$1"
-  local lock="$(lock_file "$cfg")"
   local base="$(basename "$cfg" .yaml)"
-  local log="$LOG_DIR/run_${base}.log"
 
-  # Skip finished experiments (check for output directory)
+  # Skip finished experiments (check for result files)
   if is_experiment_done "$cfg"; then
-    echo "[SKIP-DONE] $cfg (output directory exists)"
+    echo "[SKIP-DONE] $cfg (result files exist)"
     return 0
   fi
 
-  # Handle lock
-  if [[ -f "$lock" ]]; then
-    local pid
-    pid="$(cat "$lock" 2>/dev/null || true)"
-    if is_pid_running "$pid"; then
-      echo "[SKIP-RUNNING] $cfg (pid=$pid)"
-      return 0
-    else
-      echo "[STALE-LOCK] $cfg (pid=$pid) -> removing"
-      rm -f "$lock"
-    fi
-  fi
-
-  # Also skip if detected running elsewhere
-  if is_already_running_elsewhere "$cfg"; then
-    echo "[SKIP-RUNNING-ELSEWHERE] $cfg"
+  # Skip if already running
+  if is_already_running "$cfg"; then
+    echo "[SKIP-RUNNING] $cfg (process detected)"
     return 0
   fi
 
-  # Launch wrapper to ensure lock management
+  # Launch experiment
   echo "[LAUNCH] $cfg"
-  bash -c "\
-    set -euo pipefail; \
-    echo $$ > '$lock'; \
-    (
-      python '$CLI_PY' --config '$cfg' 2>&1 | tee '$log'
-    ); \
-    rm -f '$lock' \
-  " &
+  python "$CLI_PY" --config "$cfg" &
 }
 
 main() {
@@ -142,7 +104,8 @@ main() {
 
   # Wait remaining jobs
   wait
-  echo "All dispatched experiments completed or skipped. Logs: $LOG_DIR"
+  echo "All dispatched experiments completed or skipped."
 }
 
 main "$@"
+

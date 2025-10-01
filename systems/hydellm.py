@@ -28,7 +28,7 @@ class HyDELLMSystem(AbstractRAGSystem):
         self.method = method
         if self.tokenizer.pad_token is None: self.tokenizer.pad_token = self.tokenizer.eos_token
     
-    def get_batch_size(self) -> int: return 1
+    def get_batch_size(self) -> int: return 20
     
     def _create_unified_prompt(self, system_message: str, user_message: str) -> str:
         try:

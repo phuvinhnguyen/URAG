@@ -5,6 +5,7 @@ mock_api/cragkg
 venv/
 raptor/
 graphrag/
+REPLUG/
 
 *.ipynb
 __pycache__/
@@ -24,3 +25,17 @@ datasets/health*
 dataset_extractions/
 experiments/
 comparisons/
+oldresults/
+config_test/
+
+*.zip
+/FiD
+/HiRAG
+/hirag*
+/self-rag
+/data-gym-cache
+/comparisons*
+/atlas
+/.cursor
+
+eval_fid.py

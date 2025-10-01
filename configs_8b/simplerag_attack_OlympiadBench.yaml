@@ -1,0 +1,9 @@
+system:
+  name: simplerag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B-Instruct
+    method: attack
+
+dataset: datasets/OlympiadBench.json
+output: results/simplerag/attack/llama_3.1_8b_instruct/olympiadbench_0.1

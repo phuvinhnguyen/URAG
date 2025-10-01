@@ -1,0 +1,9 @@
+system:
+  name: hyderag
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.2-3B-Instruct
+    method: attack
+
+dataset: datasets/crag_task_1_and_2_mcqa_tiny.json
+output: results/hyderag/attack/llama_3.2_3b_instruct/crag_task_1_and_2_mcqa_tiny_0.1

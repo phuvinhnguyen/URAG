@@ -43,7 +43,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
         
         if self.tokenizer.pad_token is None: self.tokenizer.pad_token = self.tokenizer.eos_token
     
-    def get_batch_size(self) -> int: return 1
+    def get_batch_size(self) -> int: return 20
     
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         """Generate prompt based on sample technique."""

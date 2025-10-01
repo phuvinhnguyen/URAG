@@ -2,8 +2,8 @@ system:
   name: selfllm
   alpha: 0.1
   args:
-    model_name: meta-llama/Llama-3.1-8B-Instruct
+    model_name: meta-llama/Llama-3.2-3B-Instruct
     method: aware
 
 dataset: datasets/OlympiadBench.json
-output: results/selfllm_aware_meta-llama/Llama-3.1-8B-Instruct_olympiadbench_0.1
+output: results/selfllm/aware/llama_3.2_3b_instruct/olympiadbench_0.1

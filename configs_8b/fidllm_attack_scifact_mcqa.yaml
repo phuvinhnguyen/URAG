@@ -1,0 +1,10 @@
+system:
+  name: fidllm
+  alpha: 0.1
+  args:
+    model_name: google/flan-t5-base
+    fid_model_name: Intel/fid_flan_t5_base_nq
+    method: attack
+
+dataset: datasets/scifact_mcqa.json
+output: results/fidllm/attack/flan_t5_base/scifact_mcqa_0.1

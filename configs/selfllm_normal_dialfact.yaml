@@ -1,0 +1,9 @@
+system:
+  name: selfllm
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.2-3B-Instruct
+    method: normal
+
+dataset: datasets/dialfact.json
+output: results/selfllm/normal/llama_3.2_3b_instruct/dialfact_0.1

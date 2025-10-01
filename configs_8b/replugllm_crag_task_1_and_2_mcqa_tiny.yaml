@@ -1,0 +1,14 @@
+system:
+  name: replugrag 
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.1-8B-Instruct
+    device: cuda
+    retrieval_model: facebook/contriever
+    score_weighting: true
+    ensemble_size: 5
+    max_doc_length: 1024
+dataset: datasets/crag_task_1_and_2_mcqa_tiny.json
+output: results/replugllm_llama_3.1_8b_instruct_crag_task_1_and_2_mcqa_tiny
+
+

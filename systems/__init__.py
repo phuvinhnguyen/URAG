@@ -103,6 +103,8 @@ __all__ = [
     'GraphRAGSystem',
     'RATLLMSystem',
     'RATRAGSystem',
+    'SelfLLMSystem',
+    'SelfRAGSystem',
     'get_system',
     'list_systems',
     'AVAILABLE_SYSTEMS'

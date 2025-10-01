@@ -2,8 +2,8 @@ system:
   name: fusionllm
   alpha: 0.1
   args:
-    model_name: meta-llama/Llama-3.1-8B-Instruct
+    model_name: meta-llama/Llama-3.2-3B-Instruct
     method: aware
 
 dataset: datasets/healthver_mcqa.json
-output: results/fusionllm_aware_meta-llama/Llama-3.1-8B-Instruct_healthver_mcqa_0.1
+output: results/fusionllm/aware/llama_3.2_3b_instruct/healthver_mcqa_0.1

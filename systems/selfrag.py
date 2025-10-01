@@ -1,253 +1,460 @@
 from systems.abstract import AbstractRAGSystem
 from systems.selfllm import SelfLLMSystem
 from typing import Dict, Any, List
-from loguru import logger
-from utils.ramdb import ChunkSearcher  # pyright: ignore[reportMissingImports]
-from utils.clean import clean_web_content  # pyright: ignore[reportMissingImports]
-from utils.storage import get_storage  # pyright: ignore[reportMissingImports]
+from utils.clean import clean_web_content
+from utils.ramdb import ChunkSearcher
+from utils.storage import get_storage
+import logging
+import torch
+import numpy as np
+
+logger = logging.getLogger(__name__)
 
 class SelfRAGSystem(AbstractRAGSystem):
     """
-    Enhanced Self-RAG system that implements self-reflective retrieval-augmented generation.
+    Self-RAG system that combines adaptive retrieval with self-reflection capabilities.
     
-    This system implements the complete Self-RAG technique with improvements:
-    1. Evaluate whether retrieval is needed for the query using <retrieve> tokens
-    2. If needed, retrieve relevant documents and filter using <relevant> tokens
-    3. Generate answers segment-by-segment with inline reflection tokens
-    4. Evaluate support using <support> tokens (Fully/Partially/Not supported)
-    5. Evaluate utility using <utility> tokens (1-5 scale)
-    6. Iteratively refine with additional retrieval if utility/support is low
-    7. Maintain batch processing efficiency throughout all operations
+    This system implements the Self-RAG framework:
+    1. Uses reflection tokens to decide when to retrieve
+    2. Retrieves relevant passages when needed
+    3. Generates responses with self-critique using reflection tokens
+    4. Supports segment-wise beam search for optimal responses
     
-    Key improvements over basic RAG:
-    - Adaptive retrieval based on question complexity
-    - Segment-level generation with reflection
-    - Iterative refinement with quality thresholds
-    - Comprehensive evaluation (relevance, support, utility)
-    - Optimized batch processing for performance
+    Based on the original Self-RAG paper: https://arxiv.org/abs/2310.11511
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "auto", **kwargs):
-        """Initialize the Self-RAG system with an LLM and reflective retrieval."""
-        self.max_iterations = kwargs.pop('max_iterations', 3)
-        self.relevance_threshold = kwargs.pop('relevance_threshold', 0.7)
-        self.utility_threshold = kwargs.pop('utility_threshold', 3)  # Minimum utility score
-        self.max_segments = kwargs.pop('max_segments', 3)  # Maximum segments per generation
-        self.llm_system = SelfLLMSystem(model_name, device, technique='rag', **kwargs)
+    def __init__(self, model_name: str = "selfrag/selfrag_llama2_7b", device: str = "cuda", 
+                 threshold: float = 0.2, max_depth: int = 6, beam_width: int = 2,
+                 w_rel: float = 1.0, w_sup: float = 1.0, w_use: float = 0.5, **kwargs):
+        
+        # Initialize the underlying LLM system
+        self.llm_system = SelfLLMSystem(
+            model_name=model_name, 
+            device=device, 
+            technique='selfrag', 
+            threshold=threshold, 
+            **kwargs
+        )
+        
+        self.threshold = threshold
+        self.max_depth = max_depth
+        self.beam_width = beam_width
+        
+        # Weights for scoring different reflection aspects
+        self.w_rel = w_rel  # Weight for relevance score
+        self.w_sup = w_sup  # Weight for support score  
+        self.w_use = w_use  # Weight for utility score
+        
+        # For retrieval
+        self.database = None
+        self.embedding_model = "all-MiniLM-L6-v2"
+        
+        print(f"[SELFRAG] System initialized with model: {model_name}")
     
-    def get_batch_size(self) -> int: return 20
+    def get_batch_size(self) -> int:
+        return 10
     
-    def filter_relevant_documents(self, questions: List[str], retrieved_docs: List[List[str]]) -> List[Dict[str, Any]]:
-        """Filter documents based on relevance evaluation."""
-        relevant_docs = [[] for _ in questions]
-        is_relevant_batch = self.llm_system.evaluate_relevance(questions, retrieved_docs)
-        
-        for i, (is_relevant, docs) in enumerate(zip(is_relevant_batch, retrieved_docs)):
-            relevant_count = 0
-            for is_relevant_doc, doc in zip(is_relevant, docs):
-                if is_relevant_doc:
-                    relevant_docs[i].append(doc)
-                    relevant_count += 1
+    def _setup_database(self, samples: List[Dict[str, Any]]):
+        """Setup retrieval database from samples following the pattern from other RAG systems."""
+        if not samples:
+            return
             
-            # Log document filtering results
-            logger.info(f"[SELFRAG] Document filtering for question {i+1}:")
-            logger.info(f"[SELFRAG] Total docs retrieved: {len(docs)}")
-            logger.info(f"[SELFRAG] Relevant docs found: {relevant_count}")
-            logger.info(f"[SELFRAG] Filtered docs: {len(docs) - relevant_count}")
-            logger.info("---")
-        
-        return relevant_docs
-    
-    def iterative_retrieve_and_refine(self, questions: List[str], database, initial_contexts: List[str] = None) -> List[Dict[str, Any]]:
-        """Perform iterative retrieval and refinement for better answers with optimized batching."""
-        if initial_contexts is None:
-            initial_contexts = [""] * len(questions)
-        
-        # Track active questions and their contexts
-        active_questions = list(questions)
-        active_contexts = list(initial_contexts)
-        active_indices = list(range(len(questions)))
-        final_results = [None] * len(questions)
-        
-        for iteration in range(self.max_iterations):
-            if not active_questions:
-                break
-            
-            logger.info(f"[SELFRAG] === Iteration {iteration + 1}/{self.max_iterations} ===")
-            logger.info(f"[SELFRAG] Active questions: {len(active_questions)}")
-            
-            # Generate segments for all active questions in batch
-            segment_results = self.llm_system.generate_with_segments(active_questions, active_contexts, self.max_segments)
-            
-            # Identify questions that need more retrieval
-            questions_needing_retrieval = []
-            contexts_needing_retrieval = []
-            indices_needing_retrieval = []
-            
-            # Process results and identify completed questions
-            new_active_questions = []
-            new_active_contexts = []
-            new_active_indices = []
-            
-            for i, (segment_result, orig_idx) in enumerate(zip(segment_results, active_indices)):
-                # Check if this question is done (good enough or max iterations reached)
-                is_good_enough = (segment_result['utility_score'] >= self.utility_threshold and 
-                                 segment_result['support_score'] >= 1)
-                is_last_iteration = iteration == self.max_iterations - 1
-                
-                # Log decision for each question
-                logger.info(f"[SELFRAG] Question {i+1} evaluation:")
-                logger.info(f"[SELFRAG] Utility score: {segment_result['utility_score']} (threshold: {self.utility_threshold})")
-                logger.info(f"[SELFRAG] Support score: {segment_result['support_score']} (threshold: 1)")
-                logger.info(f"[SELFRAG] Needs retrieval: {segment_result['needs_retrieval']}")
-                logger.info(f"[SELFRAG] Is good enough: {is_good_enough}")
-                logger.info(f"[SELFRAG] Is last iteration: {is_last_iteration}")
-                
-                if is_good_enough or is_last_iteration or not segment_result['needs_retrieval']:
-                    # Question is complete
-                    logger.info(f"[SELFRAG] Question {i+1} COMPLETED after {iteration + 1} iterations")
-                    final_results[orig_idx] = {
-                        'question': active_questions[i],
-                        'final_context': active_contexts[i],
-                        'final_answer': segment_result['final_answer'],
-                        'final_support_score': segment_result['support_score'],
-                        'final_utility_score': segment_result['utility_score'],
-                        'iterations_used': iteration + 1,
-                        'segments': segment_result['segments']
-                    }
-                else:
-                    # Question needs more retrieval
-                    logger.info(f"[SELFRAG] Question {i+1} needs MORE RETRIEVAL")
-                    questions_needing_retrieval.append(active_questions[i])
-                    contexts_needing_retrieval.append(active_contexts[i])
-                    indices_needing_retrieval.append(i)
-                    
-                    new_active_questions.append(active_questions[i])
-                    new_active_contexts.append(active_contexts[i])
-                    new_active_indices.append(orig_idx)
-                
-                logger.info("---")
-            
-            # Batch retrieve additional documents for questions that need it
-            if questions_needing_retrieval and iteration < self.max_iterations - 1:
-                logger.info(f"[SELFRAG] Retrieving additional docs for {len(questions_needing_retrieval)} questions")
-                additional_docs = database.batch_search(questions_needing_retrieval, 
-                                                      list(range(len(questions_needing_retrieval))), k=15)
-                relevant_additional_docs = self.filter_relevant_documents(questions_needing_retrieval, additional_docs)
-                
-                # Update contexts with additional information
-                for i, relevant_docs in enumerate(relevant_additional_docs):
-                    if relevant_docs:
-                        context_idx = indices_needing_retrieval[i]
-                        additional_context = '\n- '.join(relevant_docs[:2])
-                        new_active_contexts[context_idx] += "\n\nAdditional information:\n" + additional_context
-                        logger.info(f"[SELFRAG] Added {len(relevant_docs[:2])} additional docs to question {i+1}")
-                    else:
-                        logger.info(f"[SELFRAG] No additional relevant docs found for question {i+1}")
-            elif questions_needing_retrieval:
-                logger.info(f"[SELFRAG] Skipping additional retrieval (last iteration or no questions needing retrieval)")
-            
-            # Update active lists for next iteration
-            active_questions = new_active_questions
-            active_contexts = new_active_contexts
-            active_indices = new_active_indices
-        
-        return final_results
-
-    def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        embedding_model = "all-MiniLM-L6-v2"
         sample = samples[0]
-
-        # Step 1: Evaluate if retrieval is needed
-        questions = [sample.get('question', '') for sample in samples]
-        retrieval_needed = self.llm_system.evaluate_retrieval_need(questions)
-        retrieval_needed_questions = [questions[i] for i in range(len(questions)) if retrieval_needed[i]]
-        retrieval_needed_samples = [(i, samples[i]) for i in range(len(samples)) if retrieval_needed[i]]
-        non_retrieval_questions = [questions[i] for i in range(len(questions)) if not retrieval_needed[i]]
-        non_retrieval_samples = [(i, samples[i]) for i in range(len(samples)) if not retrieval_needed[i]]
         
-        # Log initial retrieval decisions
-        logger.info(f"[SELFRAG] === BATCH PROCESSING {len(samples)} SAMPLES ===")
-        logger.info(f"[SELFRAG] Questions needing retrieval: {len(retrieval_needed_questions)}")
-        logger.info(f"[SELFRAG] Questions NOT needing retrieval: {len(non_retrieval_questions)}")
-        
-        for i, (question, needs_retrieval) in enumerate(zip(questions, retrieval_needed)):
-            logger.info(f"[SELFRAG] Sample {i+1}: {question[:100]}... -> {'RETRIEVE' if needs_retrieval else 'NO RETRIEVE'}")
-        logger.info("---")
-
-        # Setup database
-        if sample.get('search_results', []) != [] and \
-            sample['search_results'][0].get('persistent_storage', None):
-            if not hasattr(self, 'database'):
-                self.database = ChunkSearcher(embedding_model=embedding_model)
-                self.database.set_documents([get_storage(sample['search_results'][0]['persistent_storage'])])
-            database = self.database
+        # Check if we have persistent storage (like in HyDERAG)
+        if (sample.get('search_results', []) and 
+            sample['search_results'][0].get('persistent_storage', None)):
+            
+            if not hasattr(self, 'database') or self.database is None:
+                self.database = ChunkSearcher(embedding_model=self.embedding_model)
+                self.database.set_documents([
+                    get_storage(sample['search_results'][0]['persistent_storage'])
+                ])
         else:
-            documents = [[doc['page_snippet'] + "\n\n" + clean_web_content(doc.get('page_result', ''))
-                        for doc in _sample.get('search_results', [])] for _, _sample in retrieval_needed_samples]
-            database = ChunkSearcher(embedding_model=embedding_model)
-            database.set_documents(documents)
-
-        augmented_samples = samples.copy()
+            # Build database from search results (like in HyDERAG)
+            documents = []
+            for _sample in samples:
+                sample_docs = []
+                for doc in _sample.get('search_results', []):
+                    content = doc.get('page_snippet', '') + "\n\n" + clean_web_content(doc.get('page_result', ''))
+                    sample_docs.append(content)
+                documents.append(sample_docs)
+            
+            self.database = ChunkSearcher(embedding_model=self.embedding_model)
+            self.database.set_documents(documents)
+    
+    def _adaptive_retrieve(self, question: str, sample_id: int, options: List[str]) -> List[str]:
+        """Perform adaptive retrieval based on Self-RAG decision."""
+        # Check if model decides to retrieve
+        should_retrieve = self.llm_system.make_retrieval_decision(question, options)
         
-        # Process samples that need retrieval with iterative refinement
-        if retrieval_needed_questions:
-            # Get initial context for retrieval-needed samples
-            initial_retrieved_docs = database.batch_search(retrieval_needed_questions, [i for i in range(len(retrieval_needed_samples))], k=30)
-            initial_relevant_docs = self.filter_relevant_documents(retrieval_needed_questions, initial_retrieved_docs)
-            initial_contexts = ['\n- '.join(docs)[:3000] for docs in initial_relevant_docs]
+        print(f"[SELFRAG] Retrieval decision for sample {sample_id}: {'RETRIEVE' if should_retrieve else 'NO RETRIEVE'}")
+        
+        if not should_retrieve:
+            return []
+        
+        # Retrieve relevant documents
+        if self.database is None:
+            return []
+        
+        retrieved_docs = self.database.search(question, sample_id, k=5)
+        print(f"[SELFRAG] Retrieved {len(retrieved_docs)} documents")
+        return retrieved_docs
+    
+    def _segment_wise_beam_search(self, sample: Dict[str, Any], retrieved_docs: List[str]) -> Dict[str, Any]:
+        """
+        Implement segment-wise beam search for Self-RAG.
+        
+        This generates multiple candidate responses and selects the best one
+        based on reflection token scores.
+        """
+        candidates = []
+        
+        # Generate candidates with different contexts (following the Self-RAG approach)
+        contexts_to_try = [
+            "",  # No context
+            "\n".join(retrieved_docs[:3]) if retrieved_docs else "",  # Top 3 docs
+            "\n".join(retrieved_docs) if retrieved_docs else "",  # All docs
+        ]
+        
+        for i, context in enumerate(contexts_to_try):
+            if context or not retrieved_docs:  # Always try no context, or if no docs retrieved
+                augmented_sample = sample.copy()
+                augmented_sample['context'] = context
+                
+                # Generate response
+                result = self.llm_system.process_sample(augmented_sample)
+                
+                # Extract reflection token scores from the result
+                reflection_tokens = result.get('reflection_tokens', {})
+                
+                # Calculate composite score using reflection tokens (Self-RAG scoring)
+                relevance_score = 0.5  # Default
+                if reflection_tokens.get('relevance') == 'relevant':
+                    relevance_score = 1.0
+                elif reflection_tokens.get('relevance') == 'irrelevant':
+                    relevance_score = 0.0
+                    
+                support_score = 0.5  # Default
+                if reflection_tokens.get('support') == 'supported':
+                    support_score = 1.0
+                elif reflection_tokens.get('support') == 'partially_supported':
+                    support_score = 0.7
+                elif reflection_tokens.get('support') == 'no_support':
+                    support_score = 0.0
+                    
+                utility_score = reflection_tokens.get('utility', 3) / 5.0  # Convert to 0-1 scale
+                
+                # Self-RAG composite scoring
+                composite_score = (self.w_rel * relevance_score + 
+                                 self.w_sup * support_score + 
+                                 self.w_use * utility_score)
+                
+                candidates.append({
+                    'result': result,
+                    'score': composite_score,
+                    'context_length': len(context),
+                    'relevance_score': relevance_score,
+                    'support_score': support_score,
+                    'utility_score': utility_score
+                })
+        
+        # Select best candidate based on Self-RAG scoring
+        if candidates:
+            best_candidate = max(candidates, key=lambda x: x['score'])
+            best_result = best_candidate['result']
             
-            # Apply iterative retrieval and refinement
-            refined_results = self.iterative_retrieve_and_refine(retrieval_needed_questions, database, initial_contexts)
+            # Add Self-RAG specific metadata
+            best_result['composite_score'] = best_candidate['score']
+            best_result['context_length'] = best_candidate['context_length']
+            best_result['relevance_score'] = best_candidate['relevance_score']
+            best_result['support_score'] = best_candidate['support_score']
+            best_result['utility_score'] = best_candidate['utility_score']
             
-            # Evaluate utility for all options in batch
-            confirm_questions = []
-            confirm_options = []
-            confirm_contexts = []
-            confirm_ids = []
-            
-            for (i, sample), refined_result in zip(retrieval_needed_samples, refined_results):
-                options = sample.get('options', [])
-                confirm_options += options
-                confirm_questions += [sample.get('question', '')] * len(options)
-                confirm_contexts += [refined_result['final_context']] * len(options)
-                confirm_ids += [i] * len(options)
-            
-            # Batch evaluate support and utility
-            confirm_supports = self.llm_system.evaluate_support(confirm_questions, confirm_contexts, confirm_options)
-            confirm_utilities = self.llm_system.evaluate_utility(confirm_questions, confirm_contexts, confirm_options)
-            
-            # Update augmented samples with refined results
-            for (i, sample), refined_result in zip(retrieval_needed_samples, refined_results):
-                augmented_samples[i]['context'] = refined_result['final_context']
-                augmented_samples[i]['support'] = refined_result['final_support_score']
-                augmented_samples[i]['utility'] = refined_result['final_utility_score']
-                augmented_samples[i]['iterations_used'] = refined_result['iterations_used']
-                augmented_samples[i]['refined_answer'] = refined_result['final_answer']
+            return best_result
+        else:
+            # Fallback to basic processing
+            return self.llm_system.process_sample(sample)
+    
+    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a single sample with Self-RAG adaptive retrieval."""
+        question = sample.get('question', '')
+        options = sample.get('options', [])
+        
+        # Setup database if needed (for single sample processing)
+        if self.database is None and sample.get('search_results'):
+            self._setup_database([sample])
+        
+        # Adaptive retrieval using Self-RAG reflection tokens
+        retrieved_docs = self._adaptive_retrieve(question, 0, options)
+        
+        # Use segment-wise beam search to find best response
+        result = self._segment_wise_beam_search(sample, retrieved_docs)
+        
+        # Add retrieval information
+        result['retrieved_docs'] = retrieved_docs
+        result['num_retrieved'] = len(retrieved_docs)
+        
+        return result
+    
+    def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Process a batch of samples with Self-RAG efficiently using true batch processing."""
+        results = []
+        
+        # Setup database for batch processing
+        self._setup_database(samples)
+        
+        print(f"[SELFRAG] Processing batch of {len(samples)} samples")
+        
+        # Step 1: Batch make retrieval decisions for all samples
+        retrieval_decisions = []
+        questions = [sample.get('question', '') for sample in samples]
+        options_list = [sample.get('options', []) for sample in samples]
+        
+        retrieval_decisions = self._batch_make_retrieval_decisions(questions, options_list)
+        
+        # Step 2: Batch retrieve for samples that need retrieval
+        all_retrieved_docs = self._batch_retrieve_documents(questions, retrieval_decisions)
+        
+        # Step 3: Batch process all samples with beam search
+        try:
+            results = self._batch_segment_wise_beam_search(samples, all_retrieved_docs, retrieval_decisions)
+        except Exception as e:
+            logger.exception(f"Batch processing failed, falling back to sequential: {e}")
+            # Fallback to sequential processing
+            results = self._sequential_fallback_processing(samples, all_retrieved_docs, retrieval_decisions)
+        
+        return results
+    
+    def _batch_make_retrieval_decisions(self, questions: List[str], options_list: List[List[str]]) -> List[bool]:
+        """Batch make retrieval decisions for multiple questions."""
+        # Create batch prompts for retrieval decision
+        retrieval_prompts = []
+        for question, options in zip(questions, options_list):
+            system_message = """You are a helpful assistant that decides whether to retrieve information. Use these reflection tokens:
+- <|retrieve|> when you need external information to answer the question
+- <|no_retrieve|> when you can answer the question directly with your knowledge
 
-        # Process non-retrieval samples with segment generation for consistency
-        if non_retrieval_questions:
-            non_retrieval_segment_results = self.llm_system.generate_with_segments(non_retrieval_questions, [""] * len(non_retrieval_questions), self.max_segments)
+Respond with only the appropriate reflection token."""
+            user_message = f"Question: {question}\nOptions: {', '.join(options)}\n\nDo you need to retrieve information to answer this question?"
+            prompt = self.llm_system._create_unified_prompt(system_message, user_message)
+            retrieval_prompts.append(prompt)
+        
+        # Batch generate retrieval decisions
+        try:
+            # Use batch processing if available
+            batch_responses, _ = self.llm_system._generate_response_with_probabilities(retrieval_prompts, [['retrieve', 'no_retrieve']] * len(retrieval_prompts))
             
-            for (i, sample), segment_result in zip(non_retrieval_samples, non_retrieval_segment_results):
-                augmented_samples[i]['context'] = ""
-                augmented_samples[i]['support'] = segment_result['support_score']
-                augmented_samples[i]['utility'] = segment_result['utility_score']
-                augmented_samples[i]['iterations_used'] = 1
-                augmented_samples[i]['refined_answer'] = segment_result['final_answer']
-
-        # Generate final responses
-        final_results = []
-        for i, augmented_sample in enumerate(augmented_samples):
-            base_result = self.llm_system.process_sample(augmented_sample)
-            final_results.append({
-                **base_result,
-                'retrieval_needed': retrieval_needed[i],
-                'context': augmented_sample.get('context', ''),
-                'support_score': augmented_sample.get('support', 0),
-                'utility_score': augmented_sample.get('utility', 3),
-                'iterations_used': augmented_sample.get('iterations_used', 1),
-                'refined_answer': augmented_sample.get('refined_answer', base_result.get('generated_response', ''))
+            retrieval_decisions = []
+            for response in batch_responses:
+                reflection_tokens = self.llm_system.extract_reflection_tokens(response)
+                should_retrieve = reflection_tokens.get('retrieval') == 'retrieve'
+                retrieval_decisions.append(should_retrieve)
+            
+            return retrieval_decisions
+            
+        except Exception as e:
+            logger.warning(f"Batch retrieval decision failed, falling back to sequential: {e}")
+            # Fallback to sequential processing
+            retrieval_decisions = []
+            for question, options in zip(questions, options_list):
+                should_retrieve = self.llm_system.make_retrieval_decision(question, options)
+                retrieval_decisions.append(should_retrieve)
+            return retrieval_decisions
+    
+    def _batch_retrieve_documents(self, questions: List[str], retrieval_decisions: List[bool]) -> List[List[str]]:
+        """Batch retrieve documents for questions that need retrieval."""
+        all_retrieved_docs = []
+        
+        if self.database is not None:
+            # Collect queries for samples that need retrieval
+            queries_to_retrieve = []
+            sample_indices = []
+            
+            for i, (should_retrieve, question) in enumerate(zip(retrieval_decisions, questions)):
+                if should_retrieve:
+                    queries_to_retrieve.append(question)
+                    sample_indices.append(i)
+            
+            if queries_to_retrieve:
+                # Batch retrieval
+                batch_retrieved = self.database.batch_search(
+                    queries_to_retrieve, 
+                    sample_indices, 
+                    k=5
+                )
+                
+                # Map back to all samples
+                retrieval_map = dict(zip(sample_indices, batch_retrieved))
+                for i in range(len(questions)):
+                    if i in retrieval_map:
+                        all_retrieved_docs.append(retrieval_map[i])
+                    else:
+                        all_retrieved_docs.append([])
+            else:
+                all_retrieved_docs = [[] for _ in questions]
+        else:
+            all_retrieved_docs = [[] for _ in questions]
+        
+        return all_retrieved_docs
+    
+    def _batch_segment_wise_beam_search(self, samples: List[Dict[str, Any]], all_retrieved_docs: List[List[str]], retrieval_decisions: List[bool]) -> List[Dict[str, Any]]:
+        """Batch process samples with segment-wise beam search."""
+        results = []
+        
+        # Group samples by context strategy for batch processing
+        batch_contexts = []
+        sample_indices = []
+        
+        for i, (sample, retrieved_docs) in enumerate(zip(samples, all_retrieved_docs)):
+            # Generate different context strategies for this sample
+            contexts_to_try = [
+                "",  # No context
+                "\n".join(retrieved_docs[:3]) if retrieved_docs else "",  # Top 3 docs
+                "\n".join(retrieved_docs) if retrieved_docs else "",  # All docs
+            ]
+            
+            for context in contexts_to_try:
+                if context or not retrieved_docs:  # Always try no context
+                    augmented_sample = sample.copy()
+                    augmented_sample['context'] = context
+                    batch_contexts.append(augmented_sample)
+                    sample_indices.append(i)
+        
+        # Batch process all contexts
+        if batch_contexts:
+            try:
+                batch_results = self.llm_system.batch_process_samples(batch_contexts)
+                
+                # Group results back by original sample and select best
+                sample_results = {}
+                for idx, result in zip(sample_indices, batch_results):
+                    if idx not in sample_results:
+                        sample_results[idx] = []
+                    sample_results[idx].append(result)
+                
+                # Select best result for each sample using Self-RAG scoring
+                for i in range(len(samples)):
+                    if i in sample_results:
+                        candidates = sample_results[i]
+                        best_result = self._select_best_candidate_from_batch(candidates, all_retrieved_docs[i])
+                        
+                        # Add retrieval information
+                        best_result['retrieved_docs'] = all_retrieved_docs[i]
+                        best_result['num_retrieved'] = len(all_retrieved_docs[i])
+                        best_result['retrieval_decision'] = retrieval_decisions[i]
+                        
+                        results.append(best_result)
+                    else:
+                        # Fallback for samples with no results
+                        fallback_result = self.llm_system.process_sample(samples[i])
+                        fallback_result['retrieved_docs'] = all_retrieved_docs[i]
+                        fallback_result['num_retrieved'] = len(all_retrieved_docs[i])
+                        fallback_result['retrieval_decision'] = retrieval_decisions[i]
+                        results.append(fallback_result)
+                        
+            except Exception as e:
+                logger.exception(f"Batch beam search failed: {e}")
+                raise e
+        else:
+            # No contexts to process, use basic processing
+            results = self._sequential_fallback_processing(samples, all_retrieved_docs, retrieval_decisions)
+        
+        return results
+    
+    def _select_best_candidate_from_batch(self, candidates: List[Dict[str, Any]], retrieved_docs: List[str]) -> Dict[str, Any]:
+        """Select the best candidate from batch results using Self-RAG scoring."""
+        if not candidates:
+            return {}
+        
+        if len(candidates) == 1:
+            return candidates[0]
+        
+        scored_candidates = []
+        
+        for candidate in candidates:
+            # Extract reflection token scores from the result (if available)
+            reflection_tokens = candidate.get('reflection_tokens', {})
+            
+            # Calculate composite score using reflection tokens (Self-RAG scoring)
+            relevance_score = 0.5  # Default
+            if reflection_tokens.get('relevance') == 'relevant':
+                relevance_score = 1.0
+            elif reflection_tokens.get('relevance') == 'irrelevant':
+                relevance_score = 0.0
+                
+            support_score = 0.5  # Default
+            if reflection_tokens.get('support') == 'supported':
+                support_score = 1.0
+            elif reflection_tokens.get('support') == 'partially_supported':
+                support_score = 0.7
+            elif reflection_tokens.get('support') == 'no_support':
+                support_score = 0.0
+                
+            utility_score = reflection_tokens.get('utility', 3) / 5.0  # Convert to 0-1 scale
+            
+            # Self-RAG composite scoring
+            composite_score = (self.w_rel * relevance_score + 
+                             self.w_sup * support_score + 
+                             self.w_use * utility_score)
+            
+            scored_candidates.append({
+                'result': candidate,
+                'score': composite_score,
+                'relevance_score': relevance_score,
+                'support_score': support_score,
+                'utility_score': utility_score
             })
         
-        return final_results
+        # Select best candidate based on Self-RAG scoring
+        best_candidate = max(scored_candidates, key=lambda x: x['score'])
+        best_result = best_candidate['result']
+        
+        # Add Self-RAG specific metadata
+        best_result['composite_score'] = best_candidate['score']
+        best_result['relevance_score'] = best_candidate['relevance_score']
+        best_result['support_score'] = best_candidate['support_score']
+        best_result['utility_score'] = best_candidate['utility_score']
+        
+        return best_result
+    
+    def _sequential_fallback_processing(self, samples: List[Dict[str, Any]], all_retrieved_docs: List[List[str]], retrieval_decisions: List[bool]) -> List[Dict[str, Any]]:
+        """Fallback to sequential processing when batch processing fails."""
+        results = []
+        
+        for i, (sample, retrieved_docs) in enumerate(zip(samples, all_retrieved_docs)):
+            try:
+                # Use segment-wise beam search
+                result = self._segment_wise_beam_search(sample, retrieved_docs)
+                
+                # Add retrieval information
+                result['retrieved_docs'] = retrieved_docs
+                result['num_retrieved'] = len(retrieved_docs)
+                result['retrieval_decision'] = retrieval_decisions[i]
+                
+                results.append(result)
+                
+            except Exception as e:
+                logger.exception(f"Error processing sample {sample.get('id', 'unknown')}: {e}")
+                # Fallback to basic LLM processing
+                try:
+                    fallback_result = self.llm_system.process_sample(sample)
+                    fallback_result['retrieved_docs'] = []
+                    fallback_result['num_retrieved'] = 0
+                    fallback_result['retrieval_decision'] = False
+                    fallback_result['error'] = str(e)
+                    results.append(fallback_result)
+                except Exception as e2:
+                    logger.exception(f"Fallback also failed for sample {sample.get('id', 'unknown')}: {e2}")
+                    # Last resort: return minimal result
+                    results.append({
+                        'id': sample.get('id', 'unknown'),
+                        'generated_response': 'Error processing sample',
+                        'predicted_answer': 'A',
+                        'conformal_probabilities': {'A': 0.25, 'B': 0.25, 'C': 0.25, 'D': 0.25},
+                        'technique': 'selfrag',
+                        'retrieval_decision': False,
+                        'error': str(e2)
+                    })
+        
+        return results

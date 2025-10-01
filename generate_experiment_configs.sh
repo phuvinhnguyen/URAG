@@ -9,10 +9,13 @@
 
 # Configuration constants
 DATASETS_DIR="./datasets"
-EXPERIMENTS_DIR="./configs"
-MODEL_NAME="meta-llama/Llama-3.1-8B-Instruct"
+EXPERIMENTS_DIR="./configs_3b"
+MODEL_NAME="meta-llama/Llama-3.2-3B-Instruct"
 ALPHA="0.1"
-METHOD="aware"
+METHOD="attack" # normal, aware, attack
+JUST_MODEL_NAME=${MODEL_NAME##*/}
+JUST_MODEL_NAME=${JUST_MODEL_NAME,,}
+JUST_MODEL_NAME=${JUST_MODEL_NAME//-/_}
 
 # Function to display usage
 usage() {
@@ -69,7 +72,7 @@ system:
     method: $METHOD
 
 dataset: datasets/$dataset_file
-output: results/${method_name}_${METHOD}/${MODEL_NAME}/${output_name}_${ALPHA}
+output: results/${method_name}/${METHOD}/${JUST_MODEL_NAME}/${output_name}_${ALPHA}
 EOF
 
     echo "Generated: $config_path"
@@ -110,28 +113,7 @@ echo ""
 # Process each method
 methods_to_generate=()
 for method in "$@"; do
-    case "$method" in
-        "simple")
-            methods_to_generate+=("simplellm" "simplerag")
-            ;;
-        "fusion")
-            methods_to_generate+=("fusionllm" "fusionrag")
-            ;;
-        "hyde")
-            methods_to_generate+=("hydellm" "hyderag")
-            ;;
-        "self")
-            methods_to_generate+=("selfllm" "selfrag")
-            ;;
-        "graph")
-            methods_to_generate+=("graphllm" "graphrag")
-            ;;
-        *)
-            echo "Error: Unknown method '$method'"
-            echo "Available methods: simple, fusion, hyde, self, graph"
-            exit 1
-            ;;
-    esac
+    methods_to_generate+=("${method}llm" "${method}rag")
 done
 
 echo "Will generate configs for methods: ${methods_to_generate[*]}"

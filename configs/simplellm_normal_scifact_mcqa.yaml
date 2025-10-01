@@ -1,0 +1,9 @@
+system:
+  name: simplellm
+  alpha: 0.1
+  args:
+    model_name: meta-llama/Llama-3.2-3B-Instruct
+    method: normal
+
+dataset: datasets/scifact_mcqa.json
+output: results/simplellm/normal/llama_3.2_3b_instruct/scifact_mcqa_0.1
