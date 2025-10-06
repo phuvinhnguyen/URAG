@@ -105,7 +105,7 @@ class RaptorLLMSystem(AbstractRAGSystem):
         else:
             self.raptor = None
     
-    def get_batch_size(self) -> int: return 20
+    def get_batch_size(self) -> int: return 40
     
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         """Generate prompt based on sample technique using SYSTEM_PROMPT."""

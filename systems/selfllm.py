@@ -87,8 +87,7 @@ class SelfLLMSystem(AbstractRAGSystem):
             'utility_1': '<|utility:1|>'
         }
     
-    def get_batch_size(self) -> int:
-        return 20
+    def get_batch_size(self) -> int: return 40
     
     def _create_unified_prompt(self, system_message: str, user_message: str) -> str:
         """Create unified prompt following Self-RAG format."""

@@ -90,8 +90,7 @@ class FiDLLMSystem(AbstractRAGSystem):
         
         
     
-    def get_batch_size(self) -> int: 
-        return 10  # T5 can handle reasonable batch sizes
+    def get_batch_size(self) -> int: return 80
     
     def _extract_answer_from_response(self, response: str) -> str:
         """Extract answer from structured response format - returns only A, B, C, D, or E."""

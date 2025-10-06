@@ -98,9 +98,7 @@ class ReplugRAGSystem(AbstractRAGSystem):
         logger.info(f"ReplugRAG initialized with fusion_strategy={fusion_strategy}, "
                    f"RAG weight={self.rag_weight:.2f}, REPLUG weight={self.replug_weight:.2f}")
     
-    def get_batch_size(self) -> int:
-        """Return batch size for processing."""
-        return 10
+    def get_batch_size(self) -> int: return 20
     
     def set_provided_documents(self, documents: List[str], use_provided: bool = True):
         """

@@ -51,8 +51,7 @@ class SelfRAGSystem(AbstractRAGSystem):
         
         print(f"[SELFRAG] System initialized with model: {model_name}")
     
-    def get_batch_size(self) -> int:
-        return 10
+    def get_batch_size(self) -> int: return 40
     
     def _setup_database(self, samples: List[Dict[str, Any]]):
         """Setup retrieval database from samples following the pattern from other RAG systems."""

@@ -72,9 +72,7 @@ class ReplugLLMSystem(AbstractRAGSystem):
         
         logger.info(f"ReplugLLM initialized with ensemble_size={ensemble_size}")
     
-    def get_batch_size(self) -> int:
-        """Return batch size for processing."""
-        return 10  # Process one at a time due to ensemble complexity
+    def get_batch_size(self) -> int: return 20
     
     def set_provided_documents(self, documents: List[str], use_provided: bool = True):
         """

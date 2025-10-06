@@ -65,10 +65,10 @@ class RATRAGSystem(AbstractRAGSystem):
     def get_batch_size(self) -> int: return 5
 
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
-        question = sample.get('question', '')      
+        question = sample.get('question', '')
         system_message = SYSTEM_PROMPT + f""" You will provide step-by-step reasoning (exactly {self.thought_limit} reasoning steps in the first {self.thought_limit} lines) to answer the multiple choice question. Each reasoning step should be on a separate line. After all reasoning steps, provide short explanation before your final answer. You must strictly follow this format for the system to work."""
         user_message = f"Question: {question}\n\nProvide exactly {self.thought_limit} reasoning steps, then give your final answer in the format Answer|X where X is your chosen option (A, B, C, D, etc.).\n\nStep-by-step reasoning:"
-        return self.llm_system._create_unified_prompt(system_message, user_message)  
+        return self.llm_system._create_unified_prompt(system_message, user_message)
 
     def _generate_initial_thoughts_batch(self, questions: List[str], options: List[List[str]]) -> List[List[str]]:
         batch_cot_samples = [{

@@ -56,8 +56,7 @@ class FiDRAGSystem(AbstractRAGSystem):
         
         return 'A'  # Default fallback
     
-    def get_batch_size(self) -> int: 
-        return 10  # FiD can handle moderate batch sizes
+    def get_batch_size(self) -> int: return 80
     
     # Removed _create_haystack_pipeline method - not needed anymore
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
