@@ -54,6 +54,7 @@ class ReplugLLMSystem(AbstractRAGSystem):
         # Initialize base LLM system
         self.method = method
         self.base_llm = SimpleLLMSystem(
+            method=method,
             model_name=model_name,
             device=device,
             technique='rag',  # Use RAG technique for context handling

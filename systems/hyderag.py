@@ -21,7 +21,7 @@ class HyDERAGSystem(AbstractRAGSystem):
     def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, **kwargs):
         self.llm_system = HyDELLMSystem(model_name, device, num_samples=num_samples, technique='rag', **kwargs)
     
-    def get_batch_size(self) -> int: return 40
+    def get_batch_size(self) -> int: return 10
     
     def generate_hypothetical_document(self, questions: List[str]) -> List[str]:
         system_message = "You are a helpful assistant that writes comprehensive and informative passages to answer questions."

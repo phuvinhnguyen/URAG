@@ -1,9 +1,0 @@
-system:
-  name: selfrag
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.1-8B-Instruct
-    method: normal
-
-dataset: datasets/healthver_mcqa.json
-output: results/selfrag/normal/llama_3.1_8b_instruct/healthver_mcqa_0.1

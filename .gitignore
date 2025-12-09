@@ -39,3 +39,7 @@ config_test/
 /.cursor
 
 eval_fid.py
+
+
+config*
+result*

@@ -1,9 +1,0 @@
-system:
-  name: simplerag
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.1-8B-Instruct
-    method: aware
-
-dataset: datasets/crag_task_1_and_2_mcqa.json
-output: results/simplerag/aware/llama_3.1_8b_instruct/crag_task_1_and_2_mcqa_0.1

@@ -62,7 +62,7 @@ output: results/fidrag/{method}/flan_t5_base/{dataset_name}_{alpha}
 def main():
     """Main function to generate all configs."""
     # Create configs directory if it doesn't exist
-    configs_dir = Path("configs")
+    configs_dir = Path("configs_8b")
     configs_dir.mkdir(exist_ok=True)
     
     # Get all dataset files

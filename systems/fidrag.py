@@ -24,7 +24,8 @@ class FiDRAGSystem(AbstractRAGSystem):
     4. Generate final answer using the fused representation
     """
     
-    def __init__(self, model_name: str = "google/flan-t5-base", fid_model_name: str = "Intel/fid_flan_t5_base_nq", device: str = "auto", num_samples: int = 20, **kwargs):
+    def __init__(self, model_name: str = "google/flan-t5-base", fid_model_name: str = "Intel/fid_flan_t5_base_nq", device: str = "auto", num_samples: int = 20, retrieved_docs: int = 10, **kwargs):
+        self.retrieved_docs = retrieved_docs
         self.llm_system = FiDLLMSystem(model_name, fid_model_name, device, num_samples=num_samples, technique='rag', **kwargs)
         self.embedding_model = "all-MiniLM-L6-v2"
         self.fid_model_name = fid_model_name
@@ -86,7 +87,7 @@ class FiDRAGSystem(AbstractRAGSystem):
                 query_time = sample.get('query_time', 'March 1, 2025')
                 
                 # Retrieve documents using the database
-                retrieved_docs = database.search(question, k=10)
+                retrieved_docs = database.search(question, k=self.retrieved_docs)
                 
                 # Create augmented sample with context
                 augmented_sample = sample.copy()

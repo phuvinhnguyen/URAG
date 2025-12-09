@@ -1,9 +1,0 @@
-system:
-  name: raptorllm
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.1-8B-Instruct
-    method: attack
-
-dataset: datasets/crag_task_1_and_2_mcqa_example.json
-output: results/raptorllm/attack/llama_3.1_8b_instruct/crag_task_1_and_2_mcqa_example_0.1

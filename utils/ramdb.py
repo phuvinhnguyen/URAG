@@ -47,7 +47,7 @@ class ChunkSearcher:
         self.embeddings = self.model.encode(chunks, normalize_embeddings=True, 
                                           batch_size=SENTENCE_TRANSFORMER_BATCH_SIZE, show_progress_bar=False)
     
-    def batch_search(self, queries: List[str], interaction_ids: List[int], k: int = 20):
+    def batch_search(self, queries: List[str], interaction_ids: List[int], k: int = 20, reverse: bool = True):
         # Single batch query embedding
         query_embeds = self.model.encode(queries, normalize_embeddings=True, 
                                        batch_size=SENTENCE_TRANSFORMER_BATCH_SIZE, show_progress_bar=False)
@@ -55,6 +55,15 @@ class ChunkSearcher:
         # Vectorized similarity matrix
         similarities = query_embeds @ self.embeddings.T
         
+        def get_bot_k(args):
+            i, iid = args
+            mask = self.ids == (iid % (max(self.ids) + 1) if len(self.ids) > 0 else 0)
+            if not mask.any():
+                return []
+            scores = similarities[i, mask]
+            bot_idx = np.argpartition(scores, min(k, len(scores)-1))[:k]
+            return self.chunks[mask][bot_idx].tolist()
+
         # Parallel result extraction
         def get_top_k(args):
             i, iid = args
@@ -65,8 +74,14 @@ class ChunkSearcher:
             top_idx = np.argpartition(-scores, min(k, len(scores)-1))[:k]
             return self.chunks[mask][top_idx].tolist()
         
-        with ThreadPoolExecutor(max_workers=min(len(queries), self.max_workers)) as executor:
-            return list(executor.map(get_top_k, enumerate(interaction_ids)))
+        if reverse:
+            with ThreadPoolExecutor(max_workers=min(len(queries), self.max_workers)) as executor:
+                bot_k = list(executor.map(get_bot_k, enumerate(interaction_ids)))
+                top_k = list(executor.map(get_top_k, enumerate(interaction_ids)))
+                return bot_k + top_k
+        else:
+            with ThreadPoolExecutor(max_workers=min(len(queries), self.max_workers)) as executor:
+                return list(executor.map(get_top_k, enumerate(interaction_ids)))
     
     def search(self, query: str, interaction_id: int = 0, k: int = 20):
         return self.batch_search([query], [interaction_id], k)[0]

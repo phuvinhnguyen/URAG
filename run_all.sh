@@ -37,9 +37,8 @@ is_experiment_done() {
     return 1
   fi
   
-  # Check for specific result files that indicate completion
-  # Look for files containing 'calibration', 'test', or 'evaluate' in their names
-  if find "$output_dir" -type f \( -name "*calibration*" -o -name "*test*" -o -name "*evaluate*" \) -print -quit 2>/dev/null | grep -q .; then
+  # Check only for files containing 'evaluate' in their names
+  if find "$output_dir" -type f -name "evaluation*" -print -quit 2>/dev/null | grep -q .; then
     return 0
   fi
   

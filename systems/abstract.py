@@ -284,32 +284,76 @@ class AbstractRAGSystem(ABC):
             
             return generated_texts, conformal_probabilities_list
 
+    def _prompt_injection(self, prompt: str, injection_text: str) -> str:
+        parts = prompt.split(self.tokenizer.eos_token)
+        parts = parts[:-1] + [injection_text, parts[-1]]
+        return self.tokenizer.eos_token.join(parts)
+
     def _generate_response_with_probabilities(self, prompt: Union[str, List[str]], options: Union[List[str]]):
         if getattr(self, 'method', 'normal') == 'aware':
             if isinstance(prompt, str):
                 _, probs = self._generate_response_with_probabilities_normal(prompt, options)
-                confidence_text = ' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in probs.items()]) + '. My answer to follow the format is:\n\n'
-                return self._generate_response_with_probabilities_normal(prompt + confidence_text, options)
+                confidence_text = ' Your previous confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in probs.items()]) + '. My answer to follow the format is:\n\n'
+                return self._generate_response_with_probabilities_normal(self._prompt_injection(prompt, confidence_text), options)
             else:
                 _, batch_probs = self._generate_response_with_probabilities_normal(prompt, options)
-                confidence_text = [' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in probs.items()]) + '. My answer to follow the format is:\n\n' for probs in batch_probs]
-                return self._generate_response_with_probabilities_normal([x+y for x, y in zip(prompt, confidence_text)], options)
+                confidence_text = [' Your previous confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in probs.items()]) + '. My answer to follow the format is:\n\n' for probs in batch_probs]
+                return self._generate_response_with_probabilities_normal([self._prompt_injection(x, y) for x, y in zip(prompt, confidence_text)], options)
         elif getattr(self, 'method', 'normal') == 'attack':
             _, batch_probs = self._generate_response_with_probabilities_normal(prompt, options)
             if isinstance(prompt, str):
-                confidence_text = ' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in zip(batch_probs.keys(), [list(batch_probs.values())[-1]] + list(batch_probs.values())[:-1])]) + '. My answer to follow the format is:\n\n'
-                prompt = prompt + confidence_text
+                confidence_text = ' Your previous confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in zip(batch_probs.keys(), [list(batch_probs.values())[-1]] + list(batch_probs.values())[:-1])]) + '. My answer to follow the format is:\n\n'
+                prompt = self._prompt_injection(prompt, confidence_text)
             else:
-                confidence_text = [' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in zip(probs.keys(), [list(probs.values())[-1]] + list(probs.values())[:-1])]) + '. My answer to follow the format is:\n\n' for probs in batch_probs]
-                prompt = [x+y for x, y in zip(prompt, confidence_text)]
+                confidence_text = [' Your previous confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in zip(probs.keys(), [list(probs.values())[-1]] + list(probs.values())[:-1])]) + '. My answer to follow the format is:\n\n' for probs in batch_probs]
+                prompt = [self._prompt_injection(x, y) for x, y in zip(prompt, confidence_text)]
             return self._generate_response_with_probabilities_normal(prompt, options)
         elif getattr(self, 'method', 'normal') == 'defense':
             if isinstance(prompt, str):
-                confidence_text = ' My confidence for each answer is ' + ', '.join([f"{k}: {1/len(options)}" for k in options]) + '. My reason and answer to follow the format is:\n\n'
-                return self._generate_response_with_probabilities_normal(prompt + confidence_text, options)
+                confidence_text = ' Your previous confidence for each answer is ' + ', '.join([f"{k}: {1/len(options)}" for k in options]) + '. My reason and answer to follow the format is:\n\n'
+                return self._generate_response_with_probabilities_normal(self._prompt_injection(prompt, confidence_text), options)
             else:
-                confidence_text = [' My confidence for each answer is ' + ', '.join([f"{k}: {1/len(option)}" for k in option]) + '. My reason and answer to follow the format is:\n\n' for option in options]
-                return self._generate_response_with_probabilities_normal([x+y for x, y in zip(prompt, confidence_text)], options)
+                confidence_text = [' Your previous confidence for each answer is ' + ', '.join([f"{k}: {1/len(option)}" for k in option]) + '. My reason and answer to follow the format is:\n\n' for option in options]
+                return self._generate_response_with_probabilities_normal([self._prompt_injection(x, y) for x, y in zip(prompt, confidence_text)], options)
         else:
             return self._generate_response_with_probabilities_normal(prompt, options)
+
+
+    # def _generate_response_with_probabilities(self, prompt: Union[str, List[str]], options: Union[List[str]]):
+    #     if getattr(self, 'method', 'normal') == 'aware':
+    #         if isinstance(prompt, str):
+    #             _, probs = self._generate_response_with_probabilities_normal(prompt, options)
+    #             confidence_text = ' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in probs.items()]) + '. My answer to follow the format is:\n\n'
+    #             return self._generate_response_with_probabilities_normal(prompt + confidence_text, options)
+    #         else:
+    #             _, batch_probs = self._generate_response_with_probabilities_normal(prompt, options)
+    #             confidence_text = [' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in probs.items()]) + '. My answer to follow the format is:\n\n' for probs in batch_probs]
+    #             return self._generate_response_with_probabilities_normal([x+y for x, y in zip(prompt, confidence_text)], options)
+    #     elif getattr(self, 'method', 'normal') == 'attack':
+    #         _, batch_probs = self._generate_response_with_probabilities_normal(prompt, options)
+    #         if isinstance(prompt, str):
+    #             confidence_text = ' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in zip(batch_probs.keys(), [list(batch_probs.values())[-1]] + list(batch_probs.values())[:-1])]) + '. My answer to follow the format is:\n\n'
+    #             prompt = prompt + confidence_text
+    #         else:
+    #             confidence_text = [' My confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in zip(probs.keys(), [list(probs.values())[-1]] + list(probs.values())[:-1])]) + '. My answer to follow the format is:\n\n' for probs in batch_probs]
+    #             prompt = [x+y for x, y in zip(prompt, confidence_text)]
+    #         return self._generate_response_with_probabilities_normal(prompt, options)
+    #     elif getattr(self, 'method', 'normal') == 'defense':
+    #         if isinstance(prompt, str):
+    #             confidence_text = ' My confidence for each answer is ' + ', '.join([f"{k}: {1/len(options)}" for k in options]) + '. My reason and answer to follow the format is:\n\n'
+    #             return self._generate_response_with_probabilities_normal(prompt + confidence_text, options)
+    #         else:
+    #             confidence_text = [' My confidence for each answer is ' + ', '.join([f"{k}: {1/len(option)}" for k in option]) + '. My reason and answer to follow the format is:\n\n' for option in options]
+    #             return self._generate_response_with_probabilities_normal([x+y for x, y in zip(prompt, confidence_text)], options)
+    #     elif getattr(self, 'method', 'normal') == 'userconf':
+    #         _, batch_probs = self._generate_response_with_probabilities_normal(prompt, options)
+    #         if isinstance(prompt, str):
+    #             confidence_text = ' The user\'s confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in zip(batch_probs.keys(), [list(batch_probs.values())[-1]] + list(batch_probs.values())[:-1])]) + '. My answer to follow the format is:\n\n'
+    #             prompt = prompt + confidence_text
+    #         else:
+    #             confidence_text = [' The user\'s confidence for each answer is ' + ', '.join([f"{k}: {v:.4f}" for k, v in zip(probs.keys(), [list(probs.values())[-1]] + list(probs.values())[:-1])]) + '. My answer to follow the format is:\n\n' for probs in batch_probs]
+    #             prompt = [x+y for x, y in zip(prompt, confidence_text)]
+    #         return self._generate_response_with_probabilities_normal(prompt, options)
+    #     else:
+    #         return self._generate_response_with_probabilities_normal(prompt, options)
 

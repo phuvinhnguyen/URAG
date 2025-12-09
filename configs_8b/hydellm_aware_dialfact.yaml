@@ -1,9 +1,0 @@
-system:
-  name: hydellm
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.1-8B-Instruct
-    method: aware
-
-dataset: datasets/dialfact.json
-output: results/hydellm/aware/llama_3.1_8b_instruct/dialfact_0.1

@@ -67,11 +67,13 @@ class ReplugRAGSystem(AbstractRAGSystem):
             sys.path.insert(0, replug_path)
             
         self.rag_system = SimpleRAGSystem(
+            method=method,
             model_name=model_name,
             device=device
         )
         
         self.replug_system = ReplugLLMSystem(
+            method=method,
             model_name=model_name,
             device=device,
             ensemble_size=ensemble_size,
@@ -98,7 +100,7 @@ class ReplugRAGSystem(AbstractRAGSystem):
         logger.info(f"ReplugRAG initialized with fusion_strategy={fusion_strategy}, "
                    f"RAG weight={self.rag_weight:.2f}, REPLUG weight={self.replug_weight:.2f}")
     
-    def get_batch_size(self) -> int: return 20
+    def get_batch_size(self) -> int: return 100
     
     def set_provided_documents(self, documents: List[str], use_provided: bool = True):
         """

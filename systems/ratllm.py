@@ -51,7 +51,7 @@ class RATLLMSystem(AbstractRAGSystem):
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
     
-    def get_batch_size(self) -> int: return 40
+    def get_batch_size(self) -> int: return 20
     
     def _create_unified_prompt(self, system_message: str, user_message: str) -> str:
         """Create unified prompt following the same pattern as other LLM systems."""

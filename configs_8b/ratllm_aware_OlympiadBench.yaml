@@ -1,9 +1,0 @@
-system:
-  name: ratllm
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.1-8B-Instruct
-    method: aware
-
-dataset: datasets/OlympiadBench.json
-output: results/ratllm/aware/llama_3.1_8b_instruct/olympiadbench_0.1

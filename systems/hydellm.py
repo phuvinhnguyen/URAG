@@ -11,7 +11,7 @@ class HyDELLMSystem(AbstractRAGSystem):
     then uses that document for retrieval instead of the original query.
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "cuda", num_samples: int = 20, technique: str = "direct", temperature: float = 0.1, max_new_tokens: int = 1024, method: str = 'normal'):
+    def __init__(self, model_name: str = "gpt2", device: str = "cuda", num_samples: int = 20, technique: str = "direct", temperature: float = 0.1, max_new_tokens: int = 1024, method: str = 'normal', **kwargs):
         self.device = device
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens

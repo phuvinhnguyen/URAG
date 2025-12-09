@@ -6,10 +6,11 @@ from utils.ramdb import ChunkSearcher
 from utils.storage import get_storage
 
 class SimpleRAGSystem(AbstractRAGSystem):    
-    def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "cuda", **kwargs):
+    def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "cuda", retrieved_docs: int = 10, **kwargs):
+        self.retrieved_docs = retrieved_docs
         self.llm_system = SimpleLLMSystem(model_name, device, technique='rag', **kwargs)
     
-    def get_batch_size(self) -> int: return 40
+    def get_batch_size(self) -> int: return 20
 
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         results = []
@@ -30,7 +31,7 @@ class SimpleRAGSystem(AbstractRAGSystem):
         retrieved_docs = database.batch_search(
             [sample.get('question', '') for sample in samples],
             [i for i in range(len(samples))],
-            k=10)
+            k=self.retrieved_docs)
 
         for _id, (sample, retrieved_doc) in enumerate(zip(samples, retrieved_docs)):
             query_time = sample.get('query_time', 'March 1, 2025')

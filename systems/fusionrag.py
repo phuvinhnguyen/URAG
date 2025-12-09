@@ -24,11 +24,12 @@ class FusionRAGSystem(AbstractRAGSystem):
     4. Generate final answer using the top-ranked fused documents
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, num_queries: int = 3, k: int = 60, **kwargs):
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, num_queries: int = 3, retrieved_docs: int = 10, k: int = 60, **kwargs):
+        self.retrieved_docs = retrieved_docs
         self.llm_system = FusionLLMSystem(model_name, device, num_samples=num_samples, num_queries=num_queries, technique='fusion', **kwargs)
         self.k = k
     
-    def get_batch_size(self) -> int: return 100
+    def get_batch_size(self) -> int: return 10
     
     def _apply_reciprocal_rank_fusion(self, query_results: List[List[str]]) -> List[Tuple[str, float]]:
         doc_scores = defaultdict(float)
@@ -70,7 +71,7 @@ class FusionRAGSystem(AbstractRAGSystem):
         retrieved_docs = database.batch_search(
             sum(diverse_queries, []),
             sum([[i] * len(query) for i, query in enumerate(diverse_queries)], []),
-            k=10
+            k=self.retrieved_docs
         )
 
         retrieved_docs = [retrieved_docs[end-len(diverse_queries[i]):end] for i, end in enumerate(np.cumsum([len(query) for query in diverse_queries]))]

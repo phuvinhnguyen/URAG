@@ -13,6 +13,11 @@ def get_proof_pile() -> List[str]:
     dataset = load_dataset("Metaskepsis/Olympiads_hard", split="train")
     return ["Problem: " + row["problem"] + "\nSolution: " + row["solution"] for row in dataset]
 
+def get_metal_health() -> List[str]:
+    """Get proof-pile"""
+    dataset = load_dataset("Amod/mental_health_counseling_conversations", split="train")
+    return ["Context: " + row["Context"] + "\Response: " + row["Response"] for row in dataset]
+
 def get_storage(names: List[str]) -> List[str]:
     """Get storage from name"""
     texts = []
@@ -21,4 +26,6 @@ def get_storage(names: List[str]) -> List[str]:
             texts.extend(get_library_documentation())
         elif name == "hoskinson-center/proof-pile":
             texts.extend(get_proof_pile())
+        elif name == "Amod/mental_health_counseling_conversations":
+            texts.extend(get_metal_health())
     return texts

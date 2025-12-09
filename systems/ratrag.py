@@ -47,7 +47,7 @@ class RATRAGSystem(AbstractRAGSystem):
     """
     
     def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B-Instruct", device: str = "cuda", 
-                 max_iterations: int = 1, retrieval_k: int = 10, max_chunks_per_thought: int = 2, thought_limit: int = 5, **kwargs):
+                 max_iterations: int = 1, retrieval_k: int = 10, max_chunks_per_thought: int = 2, thought_limit: int = 3, **kwargs):
         self.max_iterations = max_iterations  # iterations per thought
         self.retrieval_k = retrieval_k
         self.max_chunks_per_thought = retrieval_k
@@ -62,7 +62,7 @@ class RATRAGSystem(AbstractRAGSystem):
         self.tokenizer = self.llm_system.tokenizer
         self.device = self.llm_system.device
     
-    def get_batch_size(self) -> int: return 5
+    def get_batch_size(self) -> int: return 2
 
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         question = sample.get('question', '')
