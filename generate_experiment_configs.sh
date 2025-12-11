@@ -9,10 +9,10 @@
 
 # Configuration constants
 DATASETS_DIR="./datasets"
-EXPERIMENTS_DIR="./configs_8b"
+EXPERIMENTS_DIR="./configs_noise"
 MODEL_NAME="meta-llama/Llama-3.1-8B-Instruct"
 ALPHA="0.1"
-METHOD="userconf" # normal, aware, attack, defense, userconf
+METHOD="normal" # normal, aware, attack, defense, userconf
 JUST_MODEL_NAME=${MODEL_NAME##*/}
 JUST_MODEL_NAME=${JUST_MODEL_NAME,,}
 JUST_MODEL_NAME=${JUST_MODEL_NAME//-/_}
