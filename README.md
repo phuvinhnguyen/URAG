@@ -340,6 +340,10 @@ output: results/mysystem_test
 
 Performance of RAG methods are saved in `results` folder while `results_confidence` stores uncertainty information.
 
+### Dataset
+
+Please refer to to `datasets/DATASETS.md` to download `crag`, `dialfact`, `healthver` benchmarks.
+
 ### Normal
 ```bash
 # generate configs for RAG systems
@@ -347,6 +351,21 @@ Performance of RAG methods are saved in `results` folder while `results_confiden
 ./run_all.sh
 python recompute_probabilities.py ./results/ --output_dir ./results_confidence/
 ```
+
+For FiD, manually create configs as follows (change dataset name):
+```yaml
+system:
+  name: fidrag
+  alpha: 0.1
+  args:
+    model_name: google/flan-t5-base
+    fid_model_name: Intel/fid_flan_t5_base_nq
+    method: normal
+
+dataset: datasets/commit_message_qa.json
+output: results/fidllm/attack/flan_t5_base/commit_message_qa_0.1
+```
+Then you can get the performance and uncertainty of this method using `./run_all.sh` script or `python cli.py --config /path/to/fid/config/file.yaml`
 
 ### Self-Aware
 You first need to change `METHOD` on line 15 of file `generate_experiment_configs.sh` to `aware`
