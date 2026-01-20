@@ -352,7 +352,7 @@ Please refer to to `datasets/DATASETS.md` to download `crag`, `dialfact`, `healt
 python recompute_probabilities.py ./results/ --output_dir ./results_confidence/
 ```
 
-For FiD, manually create configs as follows (change dataset name):
+For FiD, manually create configs in the `configs` folder as follows (change dataset name):
 ```yaml
 system:
   name: fidrag
