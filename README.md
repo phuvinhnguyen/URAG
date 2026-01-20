@@ -361,4 +361,4 @@ Output Files:
 
 ## Reproduce
 
-Please refer to the `dev` branch for more information.
+Please refer (and switch) to the `dev` branch for more information.
