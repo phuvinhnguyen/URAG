@@ -344,6 +344,17 @@ Performance of RAG methods are saved in `results` folder while `results_confiden
 
 Please refer to to `datasets/DATASETS.md` to download `crag`, `dialfact`, `healthver` benchmarks.
 
+### Example
+From existing configs in the configs folder, you can run experiments separately.
+- Run with just simple rag on odex (normal prompting)
+```bash
+python cli.py --config ./configs/simplerag_normal_odex.yaml
+```
+- Run with just replug rag on OlympiadBench (normal prompting)
+```bash
+python cli.py --config ./configs/replugrag_normal_OlympiadBench.yaml
+```
+
 ### Normal
 ```bash
 # generate configs for RAG systems
