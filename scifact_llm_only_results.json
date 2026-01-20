@@ -1,0 +1,34 @@
+{
+  "benchmark": "scifact",
+  "method": "simplellm",
+  "per_llm": [
+    {
+      "llm": "llama_3.1_8b_instruct",
+      "dataset": "scifact_mcqa_0.1",
+      "setsize_correct": 2.5057471264367814,
+      "setsize_incorrect": 2.67,
+      "setsize_all": 2.593582887700535,
+      "accuracy_overall": 0.44385026737967914,
+      "correct_samples": 87,
+      "incorrect_samples": 100,
+      "total_samples": 187
+    },
+    {
+      "llm": "llama_3.2_3b_instruct",
+      "dataset": "scifact_mcqa_0.1",
+      "setsize_correct": 2.7409638554216866,
+      "setsize_incorrect": 2.7403846153846154,
+      "setsize_all": 2.7406417112299466,
+      "accuracy_overall": 0.45454545454545453,
+      "correct_samples": 83,
+      "incorrect_samples": 104,
+      "total_samples": 187
+    }
+  ],
+  "average": {
+    "setsize_correct": 2.6233554909292343,
+    "setsize_incorrect": 2.7051923076923075,
+    "setsize_all": 2.6671122994652405,
+    "accuracy_overall": 0.44919786096256686
+  }
+}

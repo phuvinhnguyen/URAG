@@ -10,7 +10,7 @@ class SimpleRAGSystem(AbstractRAGSystem):
         self.retrieved_docs = retrieved_docs
         self.llm_system = SimpleLLMSystem(model_name, device, technique='rag', **kwargs)
     
-    def get_batch_size(self) -> int: return 20
+    def get_batch_size(self) -> int: return 1
 
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         results = []

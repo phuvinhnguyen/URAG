@@ -104,7 +104,7 @@ class LLMClient:
         )
         
         # Wait for server to be ready
-        max_retries = 60
+        max_retries = 120
         for i in range(max_retries):
             if self._is_server_running() and self._verify_model():
                 print("✅ Server ready!")

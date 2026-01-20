@@ -43,3 +43,13 @@ eval_fid.py
 
 config*
 result*
+*.log
+generate*
+
+benchmark_reports/
+mock_api/
+docs/
+data/
+corag/
+configs_8b/
+run_all_*.sh

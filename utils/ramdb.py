@@ -47,7 +47,8 @@ class ChunkSearcher:
         self.embeddings = self.model.encode(chunks, normalize_embeddings=True, 
                                           batch_size=SENTENCE_TRANSFORMER_BATCH_SIZE, show_progress_bar=False)
     
-    def batch_search(self, queries: List[str], interaction_ids: List[int], k: int = 20, reverse: bool = True):
+    def batch_search(self, queries: List[str], interaction_ids: List[int], k: int = 20):
+        reverse = False # TODO: SETTINGS
         # Single batch query embedding
         query_embeds = self.model.encode(queries, normalize_embeddings=True, 
                                        batch_size=SENTENCE_TRANSFORMER_BATCH_SIZE, show_progress_bar=False)

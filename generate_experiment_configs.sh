@@ -9,7 +9,7 @@
 
 # Configuration constants
 DATASETS_DIR="./datasets"
-EXPERIMENTS_DIR="./configs_noise"
+EXPERIMENTS_DIR="./configs"
 MODEL_NAME="meta-llama/Llama-3.1-8B-Instruct"
 ALPHA="0.1"
 METHOD="normal" # normal, aware, attack, defense, userconf

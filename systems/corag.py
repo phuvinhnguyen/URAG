@@ -1,7 +1,7 @@
 from systems.abstract import AbstractRAGSystem
 from systems.simplerag import SimpleRAGSystem
 from systems.collm import CoRAGLLMSystem
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from loguru import logger
 
 
@@ -22,12 +22,15 @@ class CoRAGSystem(AbstractRAGSystem):
         rag_weight: float = 0.5,
         corag_weight: float = 0.5,
         method: str = "normal",
+        e5_dataset: Optional[str] = None,  # Dataset to filter E5 search results
+        max_parallel_samples: int = 8,  # Number of samples to process in parallel
         **kwargs,
     ):
         self.method = method
         self.fusion_strategy = fusion_strategy
         self.rag_weight = rag_weight
         self.corag_weight = corag_weight
+        self.e5_dataset = e5_dataset
 
         # Normalize weights to avoid scaling issues.
         total = self.rag_weight + self.corag_weight
@@ -40,6 +43,8 @@ class CoRAGSystem(AbstractRAGSystem):
             model_name=model_name,
             device=device,
             method=method,
+            e5_dataset=e5_dataset,  # Pass dataset filter to CoRAG
+            max_parallel_samples=max_parallel_samples,  # Enable parallel processing
             **kwargs,
         )
 
@@ -72,7 +77,8 @@ class CoRAGSystem(AbstractRAGSystem):
 
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         rag_results = self.rag_system.batch_process_samples(samples)
-        corag_results = [self.corag_system.process_sample(sample) for sample in samples]
+        # Use CoRAG's batch processing for parallel execution (better vLLM utilization)
+        corag_results = self.corag_system.batch_process_samples(samples)
 
         fused_results: List[Dict[str, Any]] = []
         for sample, rag_result, corag_result in zip(samples, rag_results, corag_results):
@@ -101,6 +107,7 @@ class CoRAGSystem(AbstractRAGSystem):
                         "corag_result": corag_result,
                         "fusion_strategy": self.fusion_strategy,
                         "fusion_weights": {"rag": self.rag_weight, "corag": self.corag_weight},
+                        "e5_dataset": self.e5_dataset,
                     }
                 )
             except Exception as exc:
@@ -114,4 +121,3 @@ class CoRAGSystem(AbstractRAGSystem):
     def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
         # Reuse batch logic for single sample to keep consistent behavior.
         return self.batch_process_samples([sample])[0]
-
