@@ -37,20 +37,41 @@ class CoRAGSystem(AbstractRAGSystem):
         if total > 0:
             self.rag_weight /= total
             self.corag_weight /= total
+        else:
+            # Default to CoRAG-only if both weights are zero/invalid.
+            logger.warning("Both rag_weight and corag_weight are 0; defaulting to CoRAG-only.")
+            self.rag_weight = 0.0
+            self.corag_weight = 1.0
 
-        self.rag_system = SimpleRAGSystem(model_name=model_name, device=device, method=method)
-        self.corag_system = CoRAGLLMSystem(
-            model_name=model_name,
-            device=device,
-            method=method,
-            e5_dataset=e5_dataset,  # Pass dataset filter to CoRAG
-            max_parallel_samples=max_parallel_samples,  # Enable parallel processing
-            **kwargs,
-        )
+        self.rag_system = None
+        self.corag_system = None
+
+        if self.rag_weight > 0:
+            self.rag_system = SimpleRAGSystem(model_name=model_name, device=device, method=method)
+        else:
+            logger.info("RAG weight is 0; skipping SimpleRAG initialization.")
+
+        if self.corag_weight > 0:
+            self.corag_system = CoRAGLLMSystem(
+                model_name=model_name,
+                device=device,
+                method=method,
+                e5_dataset=e5_dataset,  # Pass dataset filter to CoRAG
+                max_parallel_samples=max_parallel_samples,  # Enable parallel processing
+                **kwargs,
+            )
+        else:
+            logger.info("CoRAG weight is 0; skipping CoRAG initialization.")
 
     def get_batch_size(self) -> int:
         # Limited by the slower CoRAG branch.
-        return min(self.rag_system.get_batch_size(), self.corag_system.get_batch_size())
+        if self.rag_system and self.corag_system:
+            return min(self.rag_system.get_batch_size(), self.corag_system.get_batch_size())
+        if self.rag_system:
+            return self.rag_system.get_batch_size()
+        if self.corag_system:
+            return self.corag_system.get_batch_size()
+        raise RuntimeError("Both RAG and CoRAG systems are disabled; cannot determine batch size.")
 
     def _fuse_probabilities(self, rag_probs: Dict[str, float], corag_probs: Dict[str, float]) -> Dict[str, float]:
         all_options = set(rag_probs.keys()) | set(corag_probs.keys())
@@ -76,6 +97,14 @@ class CoRAGSystem(AbstractRAGSystem):
         return fused
 
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        if self.rag_system is None and self.corag_system is None:
+            raise RuntimeError("Both RAG and CoRAG systems are disabled; cannot process samples.")
+
+        if self.rag_system is None:
+            return self.corag_system.batch_process_samples(samples)
+        if self.corag_system is None:
+            return self.rag_system.batch_process_samples(samples)
+
         rag_results = self.rag_system.batch_process_samples(samples)
         # Use CoRAG's batch processing for parallel execution (better vLLM utilization)
         corag_results = self.corag_system.batch_process_samples(samples)

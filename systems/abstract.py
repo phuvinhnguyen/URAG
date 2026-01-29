@@ -178,39 +178,13 @@ class AbstractRAGSystem(ABC):
                     pad_token_id=self.tokenizer.eos_token_id,
                     stopping_criteria=stopping,
                     return_dict_in_generate=True,
-                    output_scores=True
+                    output_logits=True
                 )
             
             # Decode generated text
             generated_text = self.tokenizer.decode(outputs.sequences[0], skip_special_tokens=True)
             
-            # Calculate probabilities for options
-            if len(outputs.scores) > 0:
-                last_token_logits = outputs.scores[-1][0]  # Last token logits for single sample
-                last_token_probs = F.softmax(last_token_logits, dim=-1)
-                
-                # Get token IDs for options
-                option_tokens = []
-                for option in options:
-                    option_ids = self.tokenizer.encode(option, add_special_tokens=False)
-                    if len(option_ids) > 0:
-                        option_tokens.append(option_ids[0])  # Use first token of each option
-                    else:
-                        # Fallback for empty encoding
-                        option_tokens.append(self.tokenizer.unk_token_id)
-                
-                # Extract probabilities for option tokens
-                option_probs = last_token_probs[option_tokens] + 1e-10  # Add small epsilon
-                option_probs = option_probs / option_probs.sum()  # Normalize
-                
-                conformal_probabilities = {
-                    option: option_probs[i].item() 
-                    for i, option in enumerate(options)
-                }
-            else:
-                # Fallback if no scores available
-                uniform_prob = 1.0 / len(options)
-                conformal_probabilities = {option: uniform_prob for option in options}
+            conformal_probabilities = self._extract_answer_probabilities(generated_text, options)
             
             return generated_text, conformal_probabilities
         
@@ -240,7 +214,7 @@ class AbstractRAGSystem(ABC):
                     pad_token_id=self.tokenizer.eos_token_id,
                     stopping_criteria=stopping,
                     return_dict_in_generate=True,
-                    output_scores=True
+                    output_logits=True
                 )
             
             # Process each sample in batch
@@ -251,38 +225,91 @@ class AbstractRAGSystem(ABC):
                 # Decode text for each sample
                 generated_text = self.tokenizer.decode(outputs.sequences[i], skip_special_tokens=True)
                 generated_texts.append(generated_text)
-                
-                # Calculate probabilities for this sample's options
-                if len(outputs.scores) > 0:
-                    last_token_logits = outputs.scores[-1][i]  # Last token logits for sample i
-                    last_token_probs = F.softmax(last_token_logits, dim=-1)
-                    
-                    # Get token IDs for this sample's options
-                    sample_options = batch_options[i]
-                    option_tokens = []
-                    for option in sample_options:
-                        option_ids = self.tokenizer.encode(option, add_special_tokens=False)
-                        if len(option_ids) > 0:
-                            option_tokens.append(option_ids[0])
-                        else:
-                            option_tokens.append(self.tokenizer.unk_token_id)
-                    
-                    # Extract probabilities
-                    option_probs = last_token_probs[option_tokens] + 1e-10
-                    option_probs = option_probs / option_probs.sum()
-                    
-                    sample_conformal_probs = {
-                        option: option_probs[j].item() 
-                        for j, option in enumerate(sample_options)
-                    }
-                else:
-                    # Fallback
-                    uniform_prob = 1.0 / len(batch_options[i])
-                    sample_conformal_probs = {option: uniform_prob for option in batch_options[i]}
-                
-                conformal_probabilities_list.append(sample_conformal_probs)
+
+                conformal_probabilities_list.append(self._extract_answer_probabilities(generated_text, batch_options[i]))
             
             return generated_texts, conformal_probabilities_list
+
+    def _extract_answer_probabilities(self, generated_response: str, options: List[str]) -> Dict[str, float]:
+        """
+        Extract probabilities for answer options from a generated response.
+        
+        This function finds where "Answer|" appears in the generated response,
+        then extracts logits for all possible option letters at that position.
+        
+        Args:
+            generated_response: The full generated response string
+            options: List of option letters (e.g., ["A", "B", "C", "D"])
+        
+        Returns:
+            Dictionary mapping option letters to probabilities
+        """
+        # Find the position where "Answer|" appears (get the last occurrence)
+        answer_prefix = "Answer|"
+        answer_pos = generated_response.rfind(answer_prefix)
+        
+        if answer_pos == -1:
+            # If "Answer|" not found, use the last token position
+            inputs = self.tokenizer(generated_response, return_tensors="pt", truncation=True)
+            for k in inputs:
+                if torch.is_tensor(inputs[k]):
+                    inputs[k] = inputs[k].to(self.device)
+            
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+            logits = outputs.logits[:, -1, :].squeeze(0)  # Last token logits
+        else:
+            # Get text up to and including "Answer|" (without the actual answer letter)
+            prefix_text = generated_response[:answer_pos + len(answer_prefix)]
+            
+            # Tokenize the prefix
+            prefix_inputs = self.tokenizer(prefix_text, return_tensors="pt", truncation=True)
+            for k in prefix_inputs:
+                if torch.is_tensor(prefix_inputs[k]):
+                    prefix_inputs[k] = prefix_inputs[k].to(self.device)
+            
+            # Forward pass to get logits at the position right after "Answer|"
+            with torch.no_grad():
+                outputs = self.model(**prefix_inputs)
+            logits = outputs.logits[:, -1, :].squeeze(0)  # Logits at position after "Answer|"
+        
+        # Get token IDs for each option letter
+        # For Llama tokenizer, single letters are typically tokenized as single tokens
+        option_logits_list = []
+        
+        for opt in options:
+            # Encode just the letter to get its token ID
+            token_ids = self.tokenizer.encode(opt, add_special_tokens=False)
+            if len(token_ids) > 0:
+                token_id = token_ids[-1]  # Use the last token (in case of multi-token encoding)
+                if token_id < logits.shape[0]:  # Check bounds
+                    option_logits_list.append((opt, logits[token_id].item()))
+                else:
+                    option_logits_list.append((opt, -100.0))  # Out of bounds, use small logit
+            else:
+                # Fallback: try with space
+                token_ids = self.tokenizer.encode(f" {opt}", add_special_tokens=False)
+                if len(token_ids) > 0:
+                    token_id = token_ids[-1]
+                    if token_id < logits.shape[0]:
+                        option_logits_list.append((opt, logits[token_id].item()))
+                    else:
+                        option_logits_list.append((opt, -100.0))
+                else:
+                    option_logits_list.append((opt, -100.0))
+        
+        # Extract logit values
+        logit_values = torch.tensor([logit for _, logit in option_logits_list], dtype=torch.float32)
+        
+        # Compute probabilities using softmax
+        probs = torch.nn.functional.softmax(logit_values, dim=0)
+        
+        # Create probability dictionary
+        option_probs = {}
+        for i, (opt, _) in enumerate(option_logits_list):
+            option_probs[opt] = float(probs[i].item())
+        
+        return option_probs
 
     def _prompt_injection(self, prompt: str, injection_text: str) -> str:
         parts = prompt.split(self.tokenizer.eos_token)

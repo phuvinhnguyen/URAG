@@ -1,4 +1,4 @@
-{
+w{
   "benchmark": "scifact",
   "per_llm": {
     "llama_3.1_8b_instruct": {

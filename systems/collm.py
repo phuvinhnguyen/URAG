@@ -484,6 +484,23 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         # Fallback to first option.
         return options[0]
 
+    @staticmethod
+    def _try_extract_answer_letter(text: str, options: List[str]) -> Optional[str]:
+        """Return a matching option letter if found; otherwise None."""
+        if not text or not options:
+            return None
+
+        match = re.search(r"Answer\|([A-Z])", text)
+        if match and match.group(1) in options:
+            return match.group(1)
+
+        for opt in options:
+            if len(opt) == 1 and opt.isalpha():
+                if re.search(rf"\b{re.escape(opt)}\b", text, flags=re.IGNORECASE):
+                    return opt
+
+        return None
+
     def _build_context_block(self, documents: List[str], path: Optional[Any], final_answer: Optional[str]) -> str:
         sections = []
         if documents:
@@ -520,6 +537,33 @@ class CoRAGLLMSystem(AbstractRAGSystem):
                 )
             except Exception as exc:
                 logger.debug(f"CoRAG final answer generation failed: {exc}")
+
+        # Prefer vLLM final answer when possible; fallback to base LLM if parsing fails.
+        vllm_pred = self._try_extract_answer_letter(final_answer or "", options)
+        if vllm_pred:
+            generated_response = final_answer or ""
+            if "Answer|" not in generated_response:
+                generated_response = f"{generated_response}\nAnswer|{vllm_pred}".strip()
+
+            conformal_probs = {opt: 0.0 for opt in options} if options else {vllm_pred: 1.0}
+            if options:
+                conformal_probs[vllm_pred] = 1.0
+
+            return {
+                "id": sample.get("id", "unknown"),
+                "generated_response": generated_response,
+                "predicted_answer": vllm_pred,
+                "conformal_probabilities": conformal_probs,
+                "technique": "corag_llm",
+                "corag_path": {
+                    "subqueries": getattr(path, "past_subqueries", None) if path else None,
+                    "subanswers": getattr(path, "past_subanswers", None) if path else None,
+                    "doc_ids": getattr(path, "past_doc_ids", None) if path else None,
+                },
+                "corag_documents": documents,
+                "corag_final_answer": final_answer,
+                "e5_dataset": self.e5_dataset,
+            }
 
         # Build augmented context and delegate final MC answer to base LLM.
         context = self._build_context_block(documents, path, final_answer)

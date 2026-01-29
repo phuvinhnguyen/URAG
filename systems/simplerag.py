@@ -9,8 +9,10 @@ class SimpleRAGSystem(AbstractRAGSystem):
     def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "cuda", retrieved_docs: int = 10, **kwargs):
         self.retrieved_docs = retrieved_docs
         self.llm_system = SimpleLLMSystem(model_name, device, technique='rag', **kwargs)
+        self.database = None
+        self.embedding_model = "all-MiniLM-L6-v2"
     
-    def get_batch_size(self) -> int: return 1
+    def get_batch_size(self) -> int: return 8
 
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         results = []
