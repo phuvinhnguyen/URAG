@@ -32,6 +32,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
         self.method = method
+        self.SYSTEM_PROMPT = SYSTEM_PROMPT
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, padding_side="left")
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
@@ -55,7 +56,7 @@ class SimpleLLMSystem(AbstractRAGSystem):
         
         try:
             prompt = self.tokenizer.apply_chat_template([
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self.SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
                 ], tokenize=False, add_generation_prompt=True)
         except: pass

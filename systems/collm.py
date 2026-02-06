@@ -31,6 +31,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         task_description: str = "answer multi-hop questions",
         max_message_length: int = 2048,
         max_tokens_per_step: int = 128,
+        subquery_max_tokens: int = 64,
         corag_src_path: Optional[str] = None,
         load_corpus: bool = False,
         vllm_host: str = "localhost",
@@ -38,6 +39,10 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         vllm_api_key: str = "token-123",
         e5_dataset: Optional[str] = None,  # Dataset to filter E5 search results
         max_parallel_samples: int = 8,  # Number of samples to process in parallel
+        num_contexts: int = 20,  # Number of documents for final answer context
+        context_placement: str = "backward",  # forward | backward | random
+        use_e5_for_final_answer: bool = True,
+        strip_mc_options: bool = True,
     ):
         self.method = method
         self.max_path_length = max_path_length
@@ -47,12 +52,17 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         self.task_description = task_description
         self.max_message_length = max_message_length
         self.max_tokens_per_step = max_tokens_per_step
+        self.subquery_max_tokens = subquery_max_tokens
         self.vllm_host = vllm_host
         self.vllm_port = vllm_port
         self.vllm_api_key = vllm_api_key
         self.load_corpus = load_corpus
         self.e5_dataset = e5_dataset  # Store dataset filter
         self.max_parallel_samples = max_parallel_samples  # Parallel processing workers
+        self.num_contexts = num_contexts
+        self.context_placement = context_placement
+        self.use_e5_for_final_answer = use_e5_for_final_answer
+        self.strip_mc_options = strip_mc_options
 
         # Base LLM used for final multiple-choice answering with Answer|X format.
         # When using CoRAG with vLLM server, we don't need SimpleLLM on GPU
@@ -69,6 +79,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
             temperature=sample_temperature,
             method=method,
         )
+        self._fallback_device = fallback_device
 
         # CoRAG internals are loaded lazily so the system still works when the
         # optional CoRAG dependencies (vLLM server, HF datasets) are unavailable.
@@ -79,6 +90,10 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         self._agent = None
         self._corpus = None
         self._vllm_client = None
+        self._corag_disabled_reason = None
+        self._warned_corag_disabled = False
+        self._logged_corag_ready = False
+        self._warned_no_tqdm = False
         
         # Thread locks for thread-safe access
         import threading
@@ -101,6 +116,25 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         if not samples:
             return []
         
+        # Attempt to initialize CoRAG once per batch for better logging.
+        self._ensure_agent()
+        if not self._corag_ready and not self._warned_corag_disabled:
+            logger.warning(
+                "CoRAG disabled; falling back to base LLM on "
+                f"{self._fallback_device}. reason={self._corag_disabled_reason}"
+            )
+            logger.info(
+                "If you expect GPU usage, make sure vLLM is running and reachable. "
+                "GPU utilization will show in the vLLM server process, not this CLI."
+            )
+            self._warned_corag_disabled = True
+        elif self._corag_ready and not self._logged_corag_ready:
+            logger.info(
+                f"CoRAG ready; using vLLM at {self.vllm_host}:{self.vllm_port}. "
+                "GPU utilization will be in the vLLM server process."
+            )
+            self._logged_corag_ready = True
+
         # Use threading to process samples in parallel
         from concurrent.futures import ThreadPoolExecutor, as_completed
         
@@ -108,6 +142,15 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         logger.info(f"Processing {len(samples)} samples with {max_workers} parallel workers")
         
         results = [None] * len(samples)
+
+        try:
+            from tqdm import tqdm
+            use_tqdm = True
+        except Exception:
+            use_tqdm = False
+            if not self._warned_no_tqdm:
+                logger.info("tqdm not available; progress bar disabled.")
+                self._warned_no_tqdm = True
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all tasks
@@ -117,15 +160,24 @@ class CoRAGLLMSystem(AbstractRAGSystem):
             }
             
             # Collect results as they complete
-            for future in as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                try:
-                    results[idx] = future.result()
-                except Exception as exc:
-                    logger.error(f"Sample {samples[idx].get('id')} generated exception: {exc}")
-                    # Fallback to base LLM on error (requires lock - tokenizer not thread-safe)
-                    with self._fallback_lock:
-                        results[idx] = self.base_llm.process_sample(samples[idx])
+            pbar = None
+            if use_tqdm:
+                pbar = tqdm(total=len(samples), desc="CoRAG", unit="sample")
+            try:
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    try:
+                        results[idx] = future.result()
+                    except Exception as exc:
+                        logger.error(f"Sample {samples[idx].get('id')} generated exception: {exc}")
+                        # Fallback to base LLM on error (requires lock - tokenizer not thread-safe)
+                        with self._fallback_lock:
+                            results[idx] = self.base_llm.process_sample(samples[idx])
+                    if pbar is not None:
+                        pbar.update(1)
+            finally:
+                if pbar is not None:
+                    pbar.close()
         
         return results
 
@@ -217,6 +269,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         if not os.path.exists(self._corag_src_path):
             logger.warning(f"CoRAG source path not found: {self._corag_src_path}")
             self._corag_ready = False
+            self._corag_disabled_reason = f"corag_src_missing:{self._corag_src_path}"
             return
 
         # CRITICAL: Move corag/src to FRONT of sys.path to avoid namespace collision
@@ -244,7 +297,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
                 from agent import CoRagAgent  # type: ignore
                 from vllm_client import VllmClient, get_vllm_model_id  # type: ignore
                 from data_utils import load_corpus, format_input_context  # type: ignore
-                from search.search_utils import set_search_dataset  # type: ignore
+                from search.search_utils import set_search_dataset, search_by_http  # type: ignore
                 
                 # Set the E5 dataset filter if specified
                 if self.e5_dataset:
@@ -267,11 +320,14 @@ class CoRAGLLMSystem(AbstractRAGSystem):
             self._load_corpus_fn = load_corpus
             self._format_input_context = format_input_context
             self._batch_truncate = corag_utils.batch_truncate
+            self._search_by_http = search_by_http
+            self._set_search_dataset = set_search_dataset
             self._corag_ready = True
             
         except Exception as exc:  # pragma: no cover - defensive
             logger.warning(f"CoRAG modules not available; falling back to base LLM only. Error: {exc}")
             self._corag_ready = False
+            self._corag_disabled_reason = f"corag_import_error:{exc}"
 
     def _check_servers(self) -> bool:
         """Check if required servers are running."""
@@ -283,6 +339,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         except Exception:
             logger.error(f"❌ vLLM server not responding at {self.vllm_host}:{self.vllm_port}")
             logger.error(f"   Start with: cd corag && bash scripts/start_vllm_server.sh")
+            self._corag_disabled_reason = "vllm_unreachable"
             return False
         
         # Check E5 search
@@ -291,6 +348,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         except Exception:
             logger.error(f"❌ E5 search server not responding at localhost:8090")
             logger.error(f"   Start with: bash start_e5_with_custom_corpus.sh")
+            self._corag_disabled_reason = "e5_unreachable"
             return False
         
         logger.info("✅ All CoRAG servers are running")
@@ -339,6 +397,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
             except Exception as exc:  # pragma: no cover - defensive
                 logger.warning(f"Failed to create vLLM client, CoRAG will be disabled. Error: {exc}")
                 self._corag_ready = False
+                self._corag_disabled_reason = f"vllm_client_error:{exc}"
                 return
 
             try:
@@ -367,11 +426,13 @@ class CoRAGLLMSystem(AbstractRAGSystem):
                         logger.warning("   Disabling CoRAG, will use fallback LLM only.")
                         self._corpus = None
                         self._corag_ready = False
+                        self._corag_disabled_reason = "manifest_missing"
                         return
             except Exception as exc:
                 logger.warning(f"Could not load corpus; disabling CoRAG. Error: {exc}")
                 self._corpus = None
                 self._corag_ready = False
+                self._corag_disabled_reason = f"corpus_load_error:{exc}"
                 return
 
             try:
@@ -380,10 +441,84 @@ class CoRAGLLMSystem(AbstractRAGSystem):
             except Exception as exc:
                 logger.warning(f"Failed to initialize CoRAG agent, disabling CoRAG. Error: {exc}")
                 self._corag_ready = False
+                self._corag_disabled_reason = f"corag_agent_error:{exc}"
 
     # ----------------------------------------------------------------------
     # Processing
     # ----------------------------------------------------------------------
+    @staticmethod
+    def _strip_options_from_question(question: str) -> str:
+        """
+        Remove multiple-choice option blocks from the question text.
+        This helps CoRAG generate cleaner subqueries.
+        """
+        if not question:
+            return question
+
+        lines = question.splitlines()
+        stripped_lines = []
+        for line in lines:
+            if re.match(r"^\s*(Options:|Choices:)\s*$", line, flags=re.IGNORECASE):
+                break
+            if re.match(r"^\s*[A-H]\s*[\.\)]\s+.+", line):
+                break
+            stripped_lines.append(line)
+
+        cleaned = "\n".join(stripped_lines).strip()
+        if cleaned:
+            return cleaned
+
+        # Fallback: remove inline option patterns if no clean split found
+        cleaned_inline = re.split(r"\n\s*[A-H]\s*[\.\)]\s+", question, maxsplit=1)[0].strip()
+        return cleaned_inline or question
+
+    def _apply_context_placement(self, contexts: List[str]) -> List[str]:
+        if self.context_placement == "forward":
+            return contexts
+        if self.context_placement == "backward":
+            return list(reversed(contexts))
+        if self.context_placement == "random":
+            import random
+            random.shuffle(contexts)
+            return contexts
+        return contexts
+
+    def _retrieve_e5_documents(self, query: str) -> List[str]:
+        search_by_http = getattr(self, "_search_by_http", None)
+        if not self._corag_ready or self._corpus is None or search_by_http is None:
+            return []
+
+        try:
+            results = search_by_http(query=query, k=self.num_contexts, dataset=self.e5_dataset)
+        except Exception as exc:
+            logger.warning(f"E5 retrieval failed for final answer docs: {exc}")
+            return []
+
+        doc_ids = [res.get("doc_id") for res in results if res.get("doc_id") is not None]
+        documents: List[str] = []
+        for doc_id in doc_ids:
+            try:
+                documents.append(self._format_input_context(self._corpus[int(doc_id)]))
+            except Exception:
+                continue
+
+        if not documents:
+            return []
+
+        # Truncate per-context like upstream CoRAG
+        max_per_ctx_length = int(self.max_message_length / max(self.num_contexts, 1) * 1.2)
+        with self._fallback_lock:
+            documents = self._batch_truncate(
+                documents,
+                tokenizer=self.base_llm.tokenizer,
+                max_length=max_per_ctx_length,
+                truncate_from_middle=True,
+                skip_special_tokens=True,
+            )
+
+        documents = self._apply_context_placement(documents)
+        return documents
+
     def _run_corag_path(self, question: str) -> Tuple[Optional[Any], List[str]]:
         """
         Run the CoRAG agent to sample a reasoning path and collect document texts.
@@ -395,6 +530,14 @@ class CoRAGLLMSystem(AbstractRAGSystem):
 
         path = None
         try:
+            # Ensure dataset filter is set for each call (avoids stale global state)
+            set_dataset = getattr(self, "_set_search_dataset", None)
+            if set_dataset:
+                if self.e5_dataset:
+                    set_dataset(self.e5_dataset)
+                else:
+                    set_dataset(None)
+
             if self.decode_strategy == "tree_search":
                 path = self._agent.tree_search(
                     query=question,
@@ -402,6 +545,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
                     max_path_length=self.max_path_length,
                     max_message_length=self.max_message_length,
                     temperature=self.sample_temperature,
+                    max_tokens=self.subquery_max_tokens,
                 )
             elif self.decode_strategy == "best_of_n":
                 path = self._agent.best_of_n(
@@ -411,6 +555,7 @@ class CoRAGLLMSystem(AbstractRAGSystem):
                     max_message_length=self.max_message_length,
                     temperature=self.sample_temperature,
                     n=self.best_n,
+                    max_tokens=self.subquery_max_tokens,
                 )
             else:
                 path = self._agent.sample_path(
@@ -418,8 +563,8 @@ class CoRAGLLMSystem(AbstractRAGSystem):
                     task_desc=self.task_description,
                     max_path_length=self.max_path_length,
                     max_message_length=self.max_message_length,
-                    temperature=self.sample_temperature,
-                    max_tokens=self.max_tokens_per_step,
+                    temperature=0.0 if self.decode_strategy == "greedy" else self.sample_temperature,
+                    max_tokens=self.subquery_max_tokens,
                 )
         except Exception as exc:
             logger.warning(f"CoRAG path generation failed; fallback to base LLM. Error: {exc}")
@@ -519,18 +664,25 @@ class CoRAGLLMSystem(AbstractRAGSystem):
         Run CoRAG to gather evidence, then answer the multiple-choice question
         with the base LLM using the collected context.
         """
-        question = sample.get("question", "")
+        raw_question = sample.get("question", "")
+        question = self._strip_options_from_question(raw_question) if self.strip_mc_options else raw_question
         options = sample.get("options", ["A", "B", "C", "D"])
 
         path, documents = self._run_corag_path(question)
         final_answer = None
+        final_documents: List[str] = []
 
         if self._corag_ready and self._agent is not None and path is not None:
             try:
+                if self.use_e5_for_final_answer:
+                    final_documents = self._retrieve_e5_documents(question)
+                else:
+                    final_documents = documents
+
                 final_answer = self._agent.generate_final_answer(
                     corag_sample=path,
                     task_desc=self.task_description,
-                    documents=documents if documents else None,
+                    documents=final_documents if final_documents else None,
                     max_message_length=self.max_message_length,
                     temperature=0.0,
                     max_tokens=self.max_tokens_per_step,
@@ -561,12 +713,15 @@ class CoRAGLLMSystem(AbstractRAGSystem):
                     "doc_ids": getattr(path, "past_doc_ids", None) if path else None,
                 },
                 "corag_documents": documents,
+                "corag_final_documents": final_documents,
                 "corag_final_answer": final_answer,
                 "e5_dataset": self.e5_dataset,
+                "corag_ready": self._corag_ready,
+                "corag_disabled_reason": self._corag_disabled_reason,
             }
 
         # Build augmented context and delegate final MC answer to base LLM.
-        context = self._build_context_block(documents, path, final_answer)
+        context = self._build_context_block(final_documents or documents, path, final_answer)
         llm_sample = sample.copy()
         if context:
             llm_sample["context"] = context
@@ -599,8 +754,11 @@ class CoRAGLLMSystem(AbstractRAGSystem):
                     "doc_ids": getattr(path, "past_doc_ids", None) if path else None,
                 },
                 "corag_documents": documents,
+                "corag_final_documents": final_documents,
                 "corag_final_answer": final_answer,
                 "e5_dataset": self.e5_dataset,
+                "corag_ready": self._corag_ready,
+                "corag_disabled_reason": self._corag_disabled_reason,
             }
         )
 
