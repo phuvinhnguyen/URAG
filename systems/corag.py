@@ -1,152 +1,183 @@
 from systems.abstract import AbstractRAGSystem
-from systems.simplerag import SimpleRAGSystem
-from systems.collm import CoRAGLLMSystem
-from typing import Dict, Any, List, Optional
-from loguru import logger
+from systems.simplellm import SimpleLLMSystem, SYSTEM_PROMPT
+from typing import Dict, Any, List
+from utils.clean import clean_web_content
+from utils.ramdb import ChunkSearcher
+from utils.storage import get_storage
+import torch
+# from utils.vllm_client import LLMClient
 
+# step 1
+def generate_subquery_prompt(is_parser: bool = False, query: str = None, past_subqueries: List[str] = None, past_subanswers: List[str] = None) -> str:
+    if is_parser:
+        def parser(x):
+            return x[:500]
+        return parser
+    else:
+        past = ''
+        for idx in range(len(past_subqueries)):
+            past += f"""Intermediate query {idx+1}: {past_subqueries[idx]}
+    Intermediate answer {idx + 1}: {past_subanswers[idx]}\n"""
+        past = past.strip()
+        return f"""You are using a search engine to answer the main query by iteratively searching the web. Given the following intermediate queries and answers, generate a new simple follow-up question that can help answer the main query. You may rephrase or decompose the main query when previous answers are not helpful. Ask simple follow-up questions only as the search engine may not understand complex questions.
 
-class CoRAGSystem(AbstractRAGSystem):
-    """
-    RAG wrapper that blends traditional retrieval with the CoRAG multi-hop agent.
+## Previous intermediate queries and answers
+{past or 'Nothing yet'}
 
-    The pipeline runs a baseline SimpleRAG pass to obtain quick semantic context,
-    then invokes the CoRAGLLMSystem to gather multi-hop evidence and answer the
-    question. Probabilities from both components are fused for robustness.
-    """
+## Main query to answer
+{query}
 
-    def __init__(
-        self,
-        model_name: str = "meta-llama/Llama-3.1-8B-Instruct",
-        device: str = "cuda",
-        fusion_strategy: str = "weighted",
-        rag_weight: float = 0.5,
-        corag_weight: float = 0.5,
-        method: str = "normal",
-        e5_dataset: Optional[str] = None,  # Dataset to filter E5 search results
-        max_parallel_samples: int = 8,  # Number of samples to process in parallel
-        **kwargs,
-    ):
-        self.method = method
-        self.fusion_strategy = fusion_strategy
-        self.rag_weight = rag_weight
-        self.corag_weight = corag_weight
-        self.e5_dataset = e5_dataset
+Respond with a simple follow-up question that will help answer the main query, do not explain yourself or output anything else."""
 
-        # Normalize weights to avoid scaling issues.
-        total = self.rag_weight + self.corag_weight
-        if total > 0:
-            self.rag_weight /= total
-            self.corag_weight /= total
-        else:
-            # Default to CoRAG-only if both weights are zero/invalid.
-            logger.warning("Both rag_weight and corag_weight are 0; defaulting to CoRAG-only.")
-            self.rag_weight = 0.0
-            self.corag_weight = 1.0
+# step 3
+def get_generate_intermediate_answer_prompt(is_parser: bool = False, subquery: str = None, documents: List[str] = None) -> str:
+    if is_parser:
+        def parser(x):
+            return x[:500]
+        return parser
+    else:
+        context = ''
+        for idx, doc in enumerate(documents):
+            context += f"""{doc}\n\n"""
 
-        self.rag_system = None
-        self.corag_system = None
+        return f"""Given the following documents, generate an appropriate answer for the query. DO NOT hallucinate any information, only use the provided documents to generate the answer. Respond "No relevant information found" if the documents do not contain useful information.
 
-        if self.rag_weight > 0:
-            self.rag_system = SimpleRAGSystem(model_name=model_name, device=device, method=method)
-        else:
-            logger.info("RAG weight is 0; skipping SimpleRAG initialization.")
+## Documents
+{context.strip()}
 
-        if self.corag_weight > 0:
-            self.corag_system = CoRAGLLMSystem(
-                model_name=model_name,
-                device=device,
-                method=method,
-                e5_dataset=e5_dataset,  # Pass dataset filter to CoRAG
-                max_parallel_samples=max_parallel_samples,  # Enable parallel processing
-                **kwargs,
+## Query
+{subquery}
+
+Respond with a concise answer only, do not explain yourself or output anything else."""
+
+def generate_final_answer_prompt(is_parser: bool = False, past_subqueries: List[str] = None, past_subanswers: List[str] = None, documents: List[str] = None) -> str:
+    if is_parser:
+        def parser(x):
+            return x[:500]
+        return parser
+    else:
+        past = ''
+        for idx in range(len(past_subqueries)):
+            past += f"""Intermediate query {idx+1}: {past_subqueries[idx]}
+Intermediate answer {idx+1}: {past_subanswers[idx]}\n"""
+        past = past.strip()
+
+        context = ''
+        if documents:
+            for idx, doc in enumerate(documents[::-1]):
+                context = f"""Doc {idx}: {doc}\n\n""" + context
+                if len(context) > 5000:
+                    break
+        return f"""Given the following intermediate queries and answers, generate a final answer for the main query by combining relevant information. Note that intermediate answers are generated by an LLM and may not always be accurate.
+
+## Documents
+{context.strip()}
+
+## Intermediate queries and answers
+{past or 'Nothing yet'}
+"""
+
+class CoRAGSystem(AbstractRAGSystem):    
+    def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B-Instruct", device: str = "cuda", retrieved_docs: int = 10, L: int = 3, **kwargs):
+        self.retrieved_docs = retrieved_docs
+        self.llm_system = SimpleLLMSystem(model_name, device=device, technique='rag', **kwargs)
+        self.embedding_model = "all-MiniLM-L6-v2"
+        self.L = L
+    
+    def get_batch_size(self) -> int: return 8
+    
+    def _generate_prompt(self, question) -> str:
+        try:
+            prompt = self.llm_system.tokenizer.apply_chat_template([
+                {"role": "system", "content": "You are a helpful assistant that generates answer shortly and concisely."},
+                {"role": "user", "content": question}
+                ], tokenize=False, add_generation_prompt=True)
+        except: pass
+
+        return prompt
+
+    def _generate_answer(self, questions: List[str]) -> List[str]:
+        prompt = [self._generate_prompt(question) for question in questions]
+        # Lấy device từ model (cần thiết khi dùng device_map='auto')
+        device = getattr(self.llm_system.model, "device", next(self.llm_system.model.parameters()).device)
+        inputs = self.llm_system.tokenizer(prompt, return_tensors="pt", padding=True, truncation=True).to(device)
+        with torch.no_grad():
+            outputs = self.llm_system.model.generate(
+                **inputs,
+                max_new_tokens=self.llm_system.max_new_tokens,
+                temperature=self.llm_system.temperature,
+                do_sample=True,
+                pad_token_id=self.llm_system.tokenizer.eos_token_id,
+                return_dict_in_generate=True,
             )
-        else:
-            logger.info("CoRAG weight is 0; skipping CoRAG initialization.")
 
-    def get_batch_size(self) -> int:
-        # Limited by the slower CoRAG branch.
-        if self.rag_system and self.corag_system:
-            return min(self.rag_system.get_batch_size(), self.corag_system.get_batch_size())
-        if self.rag_system:
-            return self.rag_system.get_batch_size()
-        if self.corag_system:
-            return self.corag_system.get_batch_size()
-        raise RuntimeError("Both RAG and CoRAG systems are disabled; cannot determine batch size.")
+        generated_texts = []
+        for i in range(len(questions)):
+            generated_text = self.llm_system.tokenizer.decode(outputs.sequences[i], skip_special_tokens=True).split('assistant\n\n')[-1]
+            generated_texts.append(generated_text)
 
-    def _fuse_probabilities(self, rag_probs: Dict[str, float], corag_probs: Dict[str, float]) -> Dict[str, float]:
-        all_options = set(rag_probs.keys()) | set(corag_probs.keys())
-        fused: Dict[str, float] = {}
-
-        if self.fusion_strategy == "max":
-            for opt in all_options:
-                fused[opt] = max(rag_probs.get(opt, 0.0), corag_probs.get(opt, 0.0))
-        elif self.fusion_strategy == "average":
-            for opt in all_options:
-                fused[opt] = (rag_probs.get(opt, 0.0) + corag_probs.get(opt, 0.0)) / 2.0
-        else:  # default weighted
-            for opt in all_options:
-                fused[opt] = self.rag_weight * rag_probs.get(opt, 0.0) + self.corag_weight * corag_probs.get(opt, 0.0)
-
-        total = sum(fused.values())
-        if total > 0:
-            fused = {k: float(v / total) for k, v in fused.items()}
-        else:
-            uniform = 1.0 / len(all_options) if all_options else 1.0
-            fused = {opt: uniform for opt in all_options}
-
-        return fused
-
+        return generated_texts
+    
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        if self.rag_system is None and self.corag_system is None:
-            raise RuntimeError("Both RAG and CoRAG systems are disabled; cannot process samples.")
+        embedding_model = "all-MiniLM-L6-v2"
+        sample = samples[0]
+        if sample.get('search_results', []) != [] and \
+            sample['search_results'][0].get('persistent_storage', None):
+            if not hasattr(self, 'database'):
+                self.database = ChunkSearcher(embedding_model=embedding_model)
+                self.database.set_documents([get_storage(sample['search_results'][0]['persistent_storage'])])
+            database = self.database
+        else:
+            documents = [[doc['page_snippet'] + "\n\n" + clean_web_content(doc.get('page_result', ''))
+                        for doc in _sample.get('search_results', [])] for _sample in samples]
+            database = ChunkSearcher(embedding_model=embedding_model)
+            database.set_documents(documents)
 
-        if self.rag_system is None:
-            return self.corag_system.batch_process_samples(samples)
-        if self.corag_system is None:
-            return self.rag_system.batch_process_samples(samples)
+        past_subqueries = []
+        past_subanswers = []
+        past_documents = []
 
-        rag_results = self.rag_system.batch_process_samples(samples)
-        # Use CoRAG's batch processing for parallel execution (better vLLM utilization)
-        corag_results = self.corag_system.batch_process_samples(samples)
+        subqueries_parser = generate_subquery_prompt(is_parser=True)
+        intermediate_answer_parser = get_generate_intermediate_answer_prompt(is_parser=True)
+        for _ in range(self.L):
+            # get prompt for subquery generation
+            subquery_prompt = [generate_subquery_prompt(is_parser=False, query=sample.get('question', ''), 
+            past_subqueries=[_subquery[idx] for _subquery in past_subqueries],
+            past_subanswers=[_subanswer[idx] for _subanswer in past_subanswers]) for idx, sample in enumerate(samples)]
+            subquery_prompt = [{i} for i in subquery_prompt]
+            subqueries = self._generate_answer(subquery_prompt)
+            subqueries = [subqueries_parser(subquery.split('assistant\n\n')[-1]) for subquery in subqueries]
+            past_subqueries.append(subqueries)
 
-        fused_results: List[Dict[str, Any]] = []
-        for sample, rag_result, corag_result in zip(samples, rag_results, corag_results):
-            try:
-                rag_probs = rag_result.get("conformal_probabilities", {}) or {}
-                corag_probs = corag_result.get("conformal_probabilities", {}) or {}
+            # search for documents from subqueries
+            retrieved_docs = database.batch_search(
+                [sample.get('question', '') for sample in samples],
+                [i for i in range(len(samples))],
+                k=self.retrieved_docs)
+            past_documents.append(retrieved_docs)
 
-                if not rag_probs:
-                    pred = rag_result.get("predicted_answer", "A")
-                    rag_probs = {pred: 1.0}
-                if not corag_probs:
-                    pred = corag_result.get("predicted_answer", "A")
-                    corag_probs = {pred: 1.0}
+            # answer the subquery
+            answer_prompt = [get_generate_intermediate_answer_prompt(
+                is_parser=False, subquery=subquery,
+                documents=[retrieved_doc]
+                ) for subquery, retrieved_doc in zip(subqueries, retrieved_docs)]
+            intermediate_answers = self._generate_answer(answer_prompt)
+            intermediate_answers = [intermediate_answer_parser(answer.split('assistant\n\n')[-1]) for answer in intermediate_answers]
+            past_subanswers.append(intermediate_answers)
 
-                fused_probs = self._fuse_probabilities(rag_probs, corag_probs)
-                predicted_answer = max(fused_probs.items(), key=lambda x: x[1])[0]
+        final_answer_contexts = [generate_final_answer_prompt(
+            is_parser=False,
+            past_subqueries=[_subquery[idx] for _subquery in past_subqueries],
+            past_subanswers=[_subanswer[idx] for _subanswer in past_subanswers],
+            documents=[past_doc[idx] for past_doc in past_documents]
+            ) for idx in range(len(samples))]
+        # Gắn context vào từng sample giống simplerag: augmented_sample['context'] = ...
+        # SimpleLLMSystem(technique='rag') dùng sample.get('context', '') trong _generate_prompt
+        augmented_samples = []
+        for sample, context_str in zip(samples, final_answer_contexts):
+            augmented_sample = sample.copy()
+            augmented_sample["context"] = context_str
+            augmented_samples.append(augmented_sample)
+        final_answers = self.llm_system.batch_process_samples(augmented_samples)
 
-                fused_results.append(
-                    {
-                        "id": sample.get("id", "unknown"),
-                        "generated_response": f"RAG: {rag_result.get('predicted_answer', 'Unknown')} | CoRAG: {corag_result.get('predicted_answer', 'Unknown')}",
-                        "predicted_answer": predicted_answer,
-                        "conformal_probabilities": fused_probs,
-                        "technique": "corag_rag",
-                        "rag_result": rag_result,
-                        "corag_result": corag_result,
-                        "fusion_strategy": self.fusion_strategy,
-                        "fusion_weights": {"rag": self.rag_weight, "corag": self.corag_weight},
-                        "e5_dataset": self.e5_dataset,
-                    }
-                )
-            except Exception as exc:
-                logger.error(f"Fusion failed for sample {sample.get('id', 'unknown')}: {exc}")
-                fallback = rag_result.copy()
-                fallback["technique"] = "corag_rag_fallback"
-                fused_results.append(fallback)
-
-        return fused_results
-
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        # Reuse batch logic for single sample to keep consistent behavior.
-        return self.batch_process_samples([sample])[0]
+        return final_answers
