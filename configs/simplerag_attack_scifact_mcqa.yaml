@@ -1,9 +1,0 @@
-system:
-  name: simplerag
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.2-3B-Instruct
-    method: attack
-
-dataset: datasets/scifact_mcqa.json
-output: results/simplerag/attack/llama_3.2_3b_instruct/scifact_mcqa_0.1

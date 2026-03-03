@@ -1,76 +1,144 @@
-## MCQA CRAG dataset
-Downloaded link: https://www.kaggle.com/datasets/curiouskat/mcqa-crag
-local path: datasets/crag_mcqa_task_1_and_2.json
+# DATASET
 
-```bash
-curl -L -o ./mcqa-crag.zip https://www.kaggle.com/api/v1/datasets/download/curiouskat/mcqa-crag
-unzip mcqa-crag.zip
+## Format
+
+**One question, one database**
+```json
+{
+    "name": "dataset name",
+    "description": "dataset description",
+    "version": "1.0",
+    "total_samples": 100,
+    "calibration_samples": 50,
+    "test_samples": 50,
+    "calibration": [
+    {
+        "id": 1,
+        "question": "Some question ...",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D"
+        ],
+        "search_results": [
+        {
+          "page_result": "Some contents to retrieve from",
+          "page_snippet": "",
+          "page_title": "",
+          "page_url": "",
+          "page_rank": 1,
+          "page_score": 1.0,
+          "page_source": "generated",
+          "page_domain": "",
+          "page_language": "en",
+          "page_metadata": {}
+        }
+        ],
+        "query_time": "March 1, 2024",
+        "technique": "rag",
+        "metadata": {}
+    }
+    ],
+    "test": [
+        {
+        "id": 1,
+        "question": "Some question ...",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D"
+        ],
+        "search_results": [
+            {
+            "page_result": "Some contents to retrieve from",
+            "page_snippet": "",
+            "page_title": "",
+            "page_url": "",
+            "page_rank": 1,
+            "page_score": 1.0,
+            "page_source": "generated",
+            "page_domain": "",
+            "page_language": "en",
+            "page_metadata": {}
+            }
+        ],
+        "query_time": "March 1, 2024",
+        "technique": "rag",
+        "metadata": {}
+        }
+    ]
 ```
 
-## MCQA CRAG tiny v
-Downloaded link: https://www.kaggle.com/datasets/curiouskat/mcqa-crag
-local path: datasets/crag_mcqa_task_1_and_2_tiny.json
+**All questions, shared database**
 
-```bash
-curl -L -o ./mcqa-crag.zip https://www.kaggle.com/api/v1/datasets/download/curiouskat/mcqa-crag
-unzip mcqa-crag.zip
-rm mcqa-crag.zip
+```json
+{
+    "name": "dataset name",
+    "description": "dataset description",
+    "version": "1.0",
+    "total_samples": 100,
+    "calibration_samples": 50,
+    "test_samples": 50,
+    "calibration": [
+    {
+        "id": 1,
+        "question": "Some question ...",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D"
+        ],
+        "search_results": [
+            {
+                "page_name": "",
+                "page_url": "",
+                "page_snippet": "", 
+                "page_result": "",
+                "persistent_storage": [
+                    "name of the database to be constructed in URAG/utils/storage.py"
+                ]
+            }
+        ],
+        "query_time": "March 1, 2024",
+        "technique": "rag",
+        "metadata": {}
+    }
+    ],
+    "test": [
+        {
+        "id": 1,
+        "question": "Some question ...",
+        "correct_answer": "D",
+        "options": [
+            "A",
+            "B",
+            "C",
+            "D"
+        ],
+        "search_results": [
+            {
+                "page_name": "",
+                "page_url": "",
+                "page_snippet": "", 
+                "page_result": "",
+                "persistent_storage": [
+                    "name of the database to be constructed in URAG/utils/storage.py"
+                ]
+            }
+        ]
+        "query_time": "March 1, 2024",
+        "technique": "rag",
+        "metadata": {}
+        }
+    ]
 ```
-
-## Multinew Sum v
-local path: datasets/multinewsum_mcqa.json
-Link: https://huggingface.co/datasets/alexfabbri/multi_news
-
-## Scifact
-link: https://huggingface.co/datasets/allenai/scifact
-local path: datasets/scifact.json
-```bash
-#!/bin/bash
-curl -L -o ./scifact-mcqa.zip https://www.kaggle.com/api/v1/datasets/download/suzhentxt/scifact-mcqa
-unzip ./scifact-mcqa.zip
-```
-
-
-## Healthver v
-link: https://huggingface.co/datasets/dwadden/healthver_entailment
-local path: datasets/healthver.json
-```bash
-#!/bin/bash
-curl -L -o ./healthver-en-mcqa.zip https://www.kaggle.com/api/v1/datasets/download/suzhentxt/healthver-en-mcqa
-unzip healthver-en-mcqa.zip
-rm healthver-en-mcqa.zip
-```
-
-## ODEX v
-link: https://huggingface.co/datasets/code-rag-bench/odex/
-local path: datasets/odex.json
-find similar answers
-
-## DialFact v
-link: https://github.com/salesforce/DialFact
-Download link: https://www.kaggle.com/api/v1/datasets/download/suzhentxt/dialfact-mcqa-ver2
-local path: datasets/dialfact.json
-```bash
-curl -L -o ./dialfact-mcqa.zip https://www.kaggle.com/api/v1/datasets/download/suzhentxt/dialfact-mcqa-ver2
-unzip dialfact-mcqa.zip 
-```
-
-## lca-commit-message-generation v
-link: https://huggingface.co/datasets/JetBrains-Research/lca-commit-message-generation
-local path: datasets/commit_message_qa.json
-
-## Olympiad bench + MathPile docs v
-link: https://huggingface.co/datasets/GAIR/MathPile
-link: huggingface.co/datasets/Hothan/OlympiadBench
-local path: datasets/OlympiadBench.json
-
-## W/Odex
-Odex with database is "Amod/mental_health_counseling_conversations"
-
-## W/DialFact
-DialFact with database is "Amod/mental_health_counseling_conversations"
-
-
+Where URAG/utils/storage.py can be found [here](https://github.com/phuvinhnguyen/URAG/blob/master/utils/storage.py)
 
 # Database statistic
 
@@ -85,3 +153,11 @@ DialFact with database is "Amod/mental_health_counseling_conversations"
 | odex.json | `persistent:code-rag-bench/library-documentation` | 439 | 34,003 (shared DB) | N/A (shared) | 60,254,653 | 1,772.04 | 8,113,623 | 238.61 |
 | wodex.json | `persistent:Amod/mental_health_counseling_conversations` | 439 | 3,512 (shared DB) | N/A (shared) | 4,666,469 | 1,328.72 | 818,938 | 233.18 |
 | scifact_mcqa.json | inline search_results | 374 | 395 | 1.06 | 26,929,250 | 68,175.32 | 3,872,744 | 9,804.42 |
+
+
+# Download
+
+To download all missing datasets we used in the evaluation, run this command:
+```bash
+bash download.sh
+```

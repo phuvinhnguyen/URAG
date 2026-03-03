@@ -12,7 +12,20 @@ try:
     from sentence_transformers import SentenceTransformer
     RAPTOR_AVAILABLE = True
 except ImportError:
-    RAPTOR_AVAILABLE = False
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    os.system(f"cd {current_dir}/../ && git clone https://github.com/parthsarthi03/raptor.git")
+    try:
+        from raptor.raptor import RetrievalAugmentation, RetrievalAugmentationConfig
+        from raptor.raptor import BaseQAModel, BaseSummarizationModel, BaseEmbeddingModel
+        from sentence_transformers import SentenceTransformer
+        RAPTOR_AVAILABLE = True
+    except ImportError:
+        RAPTOR_AVAILABLE = False
+
+if RAPTOR_AVAILABLE:
+    print("RAPTOR is available")
+else:
+    print("RAPTOR is not available")
 
 class LocalEmbeddingModel(BaseEmbeddingModel):
     def __init__(self, model_name="sentence-transformers/all-MiniLM-L6-v2"):

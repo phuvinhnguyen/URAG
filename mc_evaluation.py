@@ -25,7 +25,6 @@ from tqdm import tqdm
 from typing import List, Dict, Any, Tuple
 
 from loguru import logger
-from systems.simplellm import SimpleLLMSystem
 from systems.abstract import AbstractRAGSystem
 from metrics import ConformalMetrics
 from sklearn.metrics import roc_auc_score

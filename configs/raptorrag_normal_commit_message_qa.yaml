@@ -1,9 +1,0 @@
-system:
-  name: raptorrag
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.2-3B-Instruct
-    method: normal
-
-dataset: datasets/commit_message_qa.json
-output: results/raptorrag/normal/llama_3.2_3b_instruct/commit_message_qa_0.1

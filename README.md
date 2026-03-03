@@ -1,398 +1,116 @@
-# URAG: Uncertainty-aware RAG Evaluation with Conformal Prediction
+# URAG: Uncertainty-aware RAG Evaluation
 
-A framework for evaluating RAG (Retrieval-Augmented Generation) systems using conformal prediction techniques. This provides statistical guarantees on prediction uncertainty and enables rigorous comparison between different system architectures.
+URAG is a framework for evaluating RAG (Retrieval-Augmented Generation) systems with conformal prediction on multiple-choice QA benchmarks.
 
-## Quick Start
+## Running experiments (YAML only)
 
-### Installation
+- **Install dependencies**:
 
 ```bash
-git clone <repository-url>
-cd URAG
 pip install -r requirements.txt
 ```
 
-### Basic Usage
-
-Evaluate a simple LLM system on the example dataset:
+- **Run everything via a config file**:
 
 ```bash
-python cli.py --system simplellm --dataset datasets/example.json
+python cli.py --config <path/to/config.yaml>
 ```
 
-## Command Line Interface
-
-### Basic Command
+- **Examples** (LCA commit-message dataset):
 
 ```bash
-python cli.py --system <system_name> --dataset <dataset_path>
+python cli.py --config URAG/configs/simplellm_normal_lca.yaml
+python cli.py --config URAG/configs/simplerag_normal_lca.yaml
+python cli.py --config URAG/configs/hyderag_normal_lca.yaml
 ```
 
-### YAML Configuration
+Each config specifies:
+- `system`: which system to run (e.g., `simplellm`, `simplerag`, `hyderag`, `fusionrag`, `ratrag`, `raptorrag`, `replugrag`, `selfrag`).
+- `dataset`: path to the MCQA dataset JSON (e.g., `datasets/commit_message_qa.json`).
+- `output`: directory where calibration/test results and metrics JSON files are written.
 
-```bash
-python cli.py --config <config_file.yaml>
-```
+For available datasets, download commands, and statistics, see `datasets/DATASETS.md`.
 
-### Full Options
+## Implementing a new system
 
-```bash
-python cli.py \
-  --system simplellm \
-  --dataset datasets/example.json \
-  --output results/ \
-  --alpha 0.1 \
-  --model microsoft/DialoGPT-small \
-  --device auto \
-  --verbose
-```
+Systems are defined by subclassing `AbstractRAGSystem` in `systems/abstract.py`.
 
-### Parameters
+- **Minimal implementation**:
+  - Create `systems/mysystem.py`.
+  - Subclass `AbstractRAGSystem`.
+  - Implement:
+    - `get_batch_size(self) -> int`
+    - Either:
+      - `process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]` (single-sample),
+      - or `batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]` for true batching.
 
-- `--config`: Path to YAML configuration file (alternative to individual options)
-- `--system`: System to evaluate (required if not using config)
-  - `simplellm`: Simple LLM baseline without RAG
-  - `simplerag`: Simple RAG system with keyword-based retrieval
-  - `HyDErag`: HyDE RAG system with hypothetical document embeddings
-- `--dataset`: Path to dataset JSON file (required if not using config)
-- `--output`: Output directory for results (default: `results/`)
-- `--alpha`: Conformal prediction error rate (default: `0.1` for 90% coverage)
-- `--model`: HuggingFace model name (default: `microsoft/DialoGPT-small`)
-- `--device`: Device to use - `auto`, `cpu`, or `cuda` (default: `auto`, auto-detects best available)
-- `--verbose`: Enable detailed logging
+- **Expected output format per sample** (from `process_sample` or each element from `batch_process_samples`):
 
-## Example Commands
-
-### Basic Evaluation
-```bash
-python cli.py --system simplellm --dataset datasets/example.json
-```
-
-### High Coverage (95%)
-```bash
-python cli.py --system simplellm --dataset datasets/example.json --alpha 0.05
-```
-
-### Using Different Model
-```bash
-python cli.py --system simplellm --dataset datasets/example.json --model microsoft/DialoGPT-medium
-```
-
-### Verbose Output
-```bash
-python cli.py --system simplellm --dataset datasets/example.json --verbose
-```
-
-### YAML Configuration Files
-```bash
-# Use predefined config
-python cli.py --config configs/simplellm_example.yaml
-
-# Use comprehensive dataset with RAG
-python cli.py --config configs/simplerag_comprehensive.yaml
-
-# Use HyDE RAG system
-python cli.py --config configs/hyde_example.yaml
-```
-
-### Compare Systems
-```bash
-python compare_performance.py <path_to_result_1.json> <path_to_result_2.json> <output_path>
-```
-Example:
-```bash
-python compare_performance.py ../results/a.json ../results/b.json ../test.json
-```
-
-## Dataset Format
-
-Datasets should be JSON files with the following structure:
-
-```json
+```python
 {
-  "name": "Dataset Name",
-  "description": "Dataset description",
-  "calibration": [
-    {
-      "id": "cal_001",
-      "question": "What is the capital of France?\nA. London\nB. Berlin\nC. Paris\nD. Madrid",
-      "options": ["A", "B", "C", "D"],
-      "correct_answer": "C",
-      "technique": "direct",
-      "domain": "geography"
-    }
-  ],
-  "test": [
-    {
-      "id": "test_001", 
-      "question": "What is the smallest unit of matter?\nA. Molecule\nB. Atom\nC. Electron\nD. Proton",
-      "options": ["A", "B", "C", "D"],
-      "correct_answer": "B",
-      "technique": "direct",
-      "domain": "science"
-    }
-  ]
+    "id": sample.get("id"),
+    "generated_response": "... raw model output ...",
+    "predicted_answer": "A",  # single option label
+    "conformal_probabilities": {"A": 0.7, "B": 0.2, "C": 0.1},  # or similar dict of option → prob
+    # optional: "reasoning", "retrieved_docs", "confidence", "processing_time", ...
 }
 ```
 
-### Required Fields
+The base class also provides helper methods (e.g., `_generate_response_with_probabilities`, `_generate_response_with_probabilities_normal`, `_extract_answer_probabilities`) that you can reuse to get answer probabilities from a HF model.
 
-For each sample in `calibration` and `test`:
+## YAML config format
 
-- `id`: Unique identifier
-- `question`: Multiple choice question with options
-- `options`: List of option labels (e.g., ["A", "B", "C", "D"])
-- `correct_answer`: Correct option label
-
-### Optional Fields
-
-- `technique`: Prompting technique (`direct`, `cot`, `rag`)
-- `domain`: Question domain/category
-- `context`: Additional context for RAG systems
-- `search_results`: Pre-retrieved context
-
-## YAML Configuration Format
-
-Configuration files use YAML format for easy editing and version control:
+A config file fully specifies **which system**, **which dataset**, and **where to write results**:
 
 ```yaml
-# System configuration
 system:
-  name: simplellm  # System name (must match filename in systems/)
+  name: simplellm          # filename in systems/ without .py
+  alpha: 0.1               # conformal prediction error rate (1 - alpha coverage)
   args:
-    model_name: microsoft/DialoGPT-small  # Model parameters
-    alpha: 0.1  # Conformal prediction confidence level
-    # device: cuda  # Optional: override auto-detection
+    model_name: meta-llama/Llama-3.1-8B-Instruct
+    method: normal         # prompting methods (normal, aware, ...)
 
-# Data and output paths
-dataset: datasets/example.json
-output: results/my_experiment
-
-# Additional system-specific parameters can be added under args:
+dataset: datasets/commit_message_qa.json # path to dataset as a json file
+output: results/simplellm/normal/llama_3.1_8b_instruct/lca_commit_message_0.1 # location to save the result
 ```
 
-### Example Configurations
+- `system.name` must match a file `systems/<name>.py` that defines a subclass of `AbstractRAGSystem`.
+- All keys under `system.args` are forwarded as keyword arguments to that system’s constructor.
+- `alpha`, `dataset`, and `output` control conformal calibration level, input data, and output location respectively.
 
-See the `configs/` directory for examples:
-- `configs/simplellm_example.yaml`: Basic LLM evaluation
-- `configs/simplerag_comprehensive.yaml`: RAG system with larger dataset
-- `configs/hyde_example.yaml`: HyDE RAG system with hypothetical document embeddings
-- `configs/comparison.yaml`: Template for comparing systems
+To run a new system, create a system file under `systems/`, add a YAML config in `configs/`, then execute:
 
-## Metrics Explained
-
-### Core Metrics
-
-- **Accuracy**: Standard classification accuracy (higher is better)
-- **LAC Coverage**: Proportion of correct answers in LAC prediction sets
-- **APS Coverage**: Proportion of correct answers in APS prediction sets  
-- **Average Coverage**: Average of LAC Coverage and APS Coverage
-- **LAC Average Set Size**: Average size of LAC prediction sets (smaller is better)
-- **APS Average Set Size**: Average size of APS prediction sets (smaller is better)
-- **Average Set Size**: Average of APS Average Set Size and LAC Average Set Size
-- **LAC Set Size**: In comparison, this metric compares LAC sample by sample before taking average
-- **APS Set Size**: In comparison, this metric compares APS sample by sample before taking average
-- **Set Size**: In comparison, this metric computes Set Size sample by sample, then compare this score sample by sample before taking average
-
-### Conformal Prediction Methods
-
-- **LAC (Least Ambiguous Classifier)**: Simple threshold on class probabilities
-- **APS (Adaptive Prediction Sets)**: Adaptive threshold based on cumulative probability
-- **Set size**: $\frac{LAC+APS}{2}$
-
-Both methods provide **statistical coverage guarantees**: for confidence level (1-α), the prediction sets satisfy P(y_true ∈ C(x)) ≥ 1-α.
-
-## Output Files
-
-The evaluation produces three main output files in the specified output directory:
-
-1. **Calibration Results** (`calibration_results_TIMESTAMP.json`)
-   - Detailed results for calibration set
-   - Individual sample predictions and probabilities
-
-2. **Test Results** (`test_results_TIMESTAMP.json`)
-   - Detailed results for test set  
-   - Predictions, probabilities, and system responses
-
-3. **Evaluation Metrics** (`evaluation_metrics_TIMESTAMP.json`)
-   - Summary metrics and statistics
-   - Threshold values and coverage statistics
-
-## Available Systems
-
-### SimpleLLM (`simplellm`)
-
-Simple LLM system without RAG capabilities. Serves as a baseline for comparison.
-
-**Features:**
-- Direct prompting with multiple choice questions
-- Probability estimation via logit analysis
-- Support for different prompting techniques
-
-**Usage:**
 ```bash
-python cli.py --system simplellm --dataset datasets/example.json
+python cli.py --config <your_new_config.yaml>
 ```
 
-### SimpleRAG (`simplerag`)
+## Result
 
-Simple RAG system with keyword-based retrieval from a built-in knowledge base.
+After running, you will see something like this:
+```txt
+============================================================
+EVALUATION RESULTS
+============================================================
+Total Samples: 82
+Accuracy: $a
+LAC Coverage: $lacc
+APS Coverage: $apsc
+LAC Avg Set Size: $lac_ss
+APS Avg Set Size: $aps_ss
 
-**Features:**
-- Keyword-based document retrieval
-- Context augmentation for LLM prompts
-- Built-in knowledge base covering multiple domains
-- Retrieval scoring and ranking
+Thresholds:
+  LAC Threshold: 0.9631
+  APS Threshold: 0.9998
 
-**Usage:**
-```bash
-python cli.py --system simplerag --dataset datasets/example.json
+Output Files:
+  Calibration: $x
+  Test: $y
+  Metrics: $z
 ```
 
-### HyDERAG (`HyDErag`)
-
-Advanced RAG system using HyDE (Hypothetical Document Embeddings) technique for improved retrieval.
-
-**Features:**
-- Hypothetical document generation for better semantic retrieval
-- Combines semantic similarity with keyword matching
-- Enhanced context augmentation
-- Fallback to traditional retrieval when needed
-- Built-in comprehensive knowledge base
-
-**Usage:**
-```bash
-python cli.py --system HyDErag --dataset datasets/example.json
-```
-
-**How HyDE Works:**
-1. Generate a hypothetical document that would answer the query
-2. Use the hypothetical document for semantic retrieval instead of the raw query  
-3. Retrieve relevant documents based on semantic similarity
-4. Generate final answer using retrieved context
-
-**Compare HyDE vs SimpleRAG:**
-```bash
-# Test HyDE
-python cli.py --system HyDErag --dataset datasets/example.json --output results/hyde_test
-
-# Test SimpleRAG
-python cli.py --system simplerag --dataset datasets/example.json --output results/simplerag_test
-
-# Compare results
-python compare_performance.py results/hyde_test/evaluation_metrics_*.json results/simplerag_test/evaluation_metrics_*.json results/comparison.json
-```
-
-## Adding New Systems
-
-Adding new systems is now automatic! Just create a new file in the `systems/` directory.
-
-### Step 1: Create System File
-
-Create a new Python file in `systems/` directory (e.g., `systems/mysystem.py`):
-
-```python
-# systems/mysystem.py
-from systems.abstract import AbstractRAGSystem
-from typing import Dict, Any
-
-class MyRAGSystem(AbstractRAGSystem):
-    def __init__(self, **kwargs):
-        # Initialize your system with any parameters
-        # All kwargs from config file 'args' section will be passed here
-        self.my_parameter = kwargs.get('my_parameter', 'default_value')
-    
-    def get_batch_size(self) -> int:
-        return 1
-    
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        # Process sample and return required format
-        return {
-            'id': sample.get('id'),
-            'generated_response': response,
-            'predicted_answer': answer,
-            'option_probabilities': probabilities
-        }
-```
-
-### Step 2: Use Immediately
-
-The system is automatically discovered! Use it right away:
-
-**Command Line:**
-```bash
-python cli.py --system mysystem --dataset datasets/example.json
-```
-
-**YAML Config:**
-```yaml
-system:
-  name: mysystem  # Filename without .py extension
-  args:
-    my_parameter: custom_value
-    model_name: microsoft/DialoGPT-medium
-
-dataset: datasets/example.json
-output: results/mysystem_test
-```
-
-## Reproduce
-
-Performance of RAG methods are saved in `results` folder while `results_confidence` stores uncertainty information.
-
-### Dataset
-
-Please refer to to `datasets/DATASETS.md` to download `crag`, `dialfact`, `healthver` benchmarks.
-
-### Example
-From existing configs in the configs folder, you can run experiments separately.
-- Run with just simple rag on odex (normal prompting)
-```bash
-python cli.py --config ./configs/simplerag_normal_odex.yaml
-```
-- Run with just replug rag on OlympiadBench (normal prompting)
-```bash
-python cli.py --config ./configs/replugrag_normal_OlympiadBench.yaml
-```
-
-### Normal
-```bash
-# generate configs for RAG systems
-./generate_experiment_configs.sh simple fusion hyde self raptor rat replug
-./run_all.sh
-python recompute_probabilities.py ./results/ --output_dir ./results_confidence/
-```
-
-For FiD, manually create configs in the `configs` folder as follows (change dataset name):
-```yaml
-system:
-  name: fidrag
-  alpha: 0.1
-  args:
-    model_name: google/flan-t5-base
-    fid_model_name: Intel/fid_flan_t5_base_nq
-    method: normal
-
-dataset: datasets/commit_message_qa.json
-output: results/fidllm/attack/flan_t5_base/commit_message_qa_0.1
-```
-Then you can get the performance and uncertainty of this method using `./run_all.sh` script or `python cli.py --config /path/to/fid/config/file.yaml`
-
-### Self-Aware
-You first need to change `METHOD` on line 15 of file `generate_experiment_configs.sh` to `aware`
-```bash
-# generate configs for RAG systems
-./generate_experiment_configs.sh simple fusion hyde self raptor rat replug
-./run_all.sh
-python recompute_probabilities.py ./results/ --output_dir ./results_confidence/
-```
-
-### Wrong-Aware
-You first need to change `METHOD` on line 15 of file `generate_experiment_configs.sh` to `attack`
-```bash
-# generate configs for RAG systems
-./generate_experiment_configs.sh simple fusion hyde self raptor rat replug
-./run_all.sh
-python recompute_probabilities.py ./results/ --output_dir ./results_confidence/
-```
-
+where:
+- Accuracy: $a
+- Coverage: ($lacc + $apsc)/2
+- Set Size: ($lac_ss + $aps_ss)/2
+- LLM's answer (what the system returns in `process_sample` and `batch_process_samples` methods) for all samples are saved in $x (calibration set) and $y (test set)
+- Performance, set size, coverage rate, conformal probabilities are saved in $z

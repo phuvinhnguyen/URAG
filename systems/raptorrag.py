@@ -15,7 +15,15 @@ try:
     from raptor.raptor import RetrievalAugmentation, RetrievalAugmentationConfig
     RAPTOR_AVAILABLE = True
 except ImportError:
-    RAPTOR_AVAILABLE = False
+    # cd to parrent dirrectory of this file and clone https://github.com/parthsarthi03/raptor.git
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    os.system(f"cd {current_dir}/../ && git clone https://github.com/parthsarthi03/raptor.git")
+
+    try:
+        from raptor.raptor import RetrievalAugmentation, RetrievalAugmentationConfig
+        RAPTOR_AVAILABLE = True
+    except ImportError:
+        RAPTOR_AVAILABLE = False
 
 
 class RaptorRAGSystem(AbstractRAGSystem):

@@ -1,9 +1,0 @@
-system:
-  name: ratllm
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.2-3B-Instruct
-    method: normal
-
-dataset: datasets/multinewsum_mcqa.json
-output: results/ratllm/normal/llama_3.2_3b_instruct/multinewsum_mcqa_0.1

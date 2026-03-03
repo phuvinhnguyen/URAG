@@ -1,9 +1,0 @@
-system:
-  name: fusionllm
-  alpha: 0.1
-  args:
-    model_name: meta-llama/Llama-3.2-3B-Instruct
-    method: aware
-
-dataset: datasets/crag_task_1_and_2_mcqa.json
-output: results/fusionllm/aware/llama_3.2_3b_instruct/crag_task_1_and_2_mcqa_0.1
