@@ -1,14 +1,11 @@
 from systems.abstract import AbstractRAGSystem
 from systems.hydellm import HyDELLMSystem
 from typing import Dict, Any, List
+import torch
 from loguru import logger
-import re
-
-from utils.vectordb import QdrantVectorDB  # pyright: ignore[reportMissingImports]
 from utils.clean import clean_web_content  # pyright: ignore[reportMissingImports]
-from utils.get_html import get_web_content  # pyright: ignore[reportMissingImports]
-
-
+from utils.storage import get_storage  # pyright: ignore[reportMissingImports]
+from utils.ramdb import ChunkSearcher
 
 class HyDERAGSystem(AbstractRAGSystem):
     """
@@ -21,57 +18,62 @@ class HyDERAGSystem(AbstractRAGSystem):
     4. Generate final answer using retrieved context
     """
     
-    def __init__(self, model_name: str = "meta-llama/Llama-2-7b-chat-hf", device: str = "auto", **kwargs):
-        """Initialize the HyDE RAG system with an LLM and enhanced retrieval."""
-        # Initialize the HyDE LLM component
-        self.llm_system = HyDELLMSystem(model_name, device, technique='rag')
+    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, **kwargs):
+        self.llm_system = HyDELLMSystem(model_name, device, num_samples=num_samples, technique='rag', **kwargs)
     
-    def get_batch_size(self) -> int:
-        """Return batch size."""
-        return 1
+    def get_batch_size(self) -> int: return 10
     
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process sample with HyDE RAG enhancement."""
-        num_retrieved_docs = 10
-        question = sample.get('question', '')
-        documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
-                     doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
-                     for doc in sample.get('search_results', [])]
-        
-        database = QdrantVectorDB(
-            texts=documents,
-            embedding_model="sentence_transformers",
-            chunk_size=30,
-            overlap=10
-        )
-        
-        # Step 1: Generate hypothetical document using HyDE LLM
-        hypothetical_doc = self.llm_system.generate_hypothetical_document(question)
-        logger.info(f"Generated hypothetical document: {hypothetical_doc[:100]}...")
+    def generate_hypothetical_document(self, questions: List[str]) -> List[str]:
+        system_message = "You are a helpful assistant that writes comprehensive and informative passages to answer questions."
+        user_message = "Write a detailed, factual passage that would answer the following question:\n\nQuestion: {}\n\nProvide a comprehensive answer with relevant facts and information."
 
-        hyde_retrieved_docs = database.search(hypothetical_doc, method="hybrid", k=num_retrieved_docs)
+        prompts = [self.llm_system._create_unified_prompt(system_message, user_message.format(question)) for question in questions]
+
+        inputs = self.llm_system.tokenizer(prompts, return_tensors="pt", padding=True, truncation=True).to(self.llm_system.device)
         
-        # Step 4: Augment sample with retrieved context
-        augmented_sample = sample.copy()
-        if hyde_retrieved_docs:
-            augmented_sample['search_results'] = "- " + "\n- ".join([i['chunk'] for i in hyde_retrieved_docs])
-            augmented_sample['technique'] = 'hyde'            
+        with torch.no_grad():
+            outputs = self.llm_system.model.generate(
+                **inputs,
+                max_new_tokens=224,
+                temperature=0.1,
+                do_sample=True,
+                pad_token_id=self.llm_system.tokenizer.eos_token_id,
+                eos_token_id=self.llm_system.tokenizer.eos_token_id
+            )
+        
+        hypothetical_docs = [self.llm_system.tokenizer.decode(output[len(inputs.input_ids[i]):], skip_special_tokens=True).strip() for i, output in enumerate(outputs)]
+
+        return hypothetical_docs
+
+    def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        results = []
+        embedding_model = "all-MiniLM-L6-v2"
+        sample = samples[0]
+        if sample.get('search_results', []) != [] and \
+            sample['search_results'][0].get('persistent_storage', None):
+            if not hasattr(self, 'database'):
+                self.database = ChunkSearcher(embedding_model=embedding_model)
+                self.database.set_documents([get_storage(sample['search_results'][0]['persistent_storage'])])
+            database = self.database
         else:
-            augmented_sample['technique'] = 'hyde'
+            documents = [[doc['page_snippet'] + "\n\n" + clean_web_content(doc.get('page_result', ''))
+                        for doc in _sample.get('search_results', [])] for _sample in samples]
+            database = ChunkSearcher(embedding_model=embedding_model)
+            database.set_documents(documents)
+
+        hypothetical_docs = self.generate_hypothetical_document([sample.get('question', '') for sample in samples])
+        retrieved_docs = database.batch_search(hypothetical_docs, [i for i in range(len(samples))], k=10)
         
-        # Pass the hypothetical document to avoid regenerating it in HyDELLMSystem
-        augmented_sample['hypothetical_document'] = hypothetical_doc
+        for _id, sample in enumerate(samples):
+            retrieved_doc = retrieved_docs[_id]
+            query_time = sample.get('query_time', 'March 1, 2025')
+            augmented_sample = sample.copy()
+            if retrieved_doc: augmented_sample['context'] = ("\n- " + "\n- ".join(retrieved_doc))[:4000] + '\nQuery Time: ' + query_time
+            try:
+                result = self.llm_system.process_sample(augmented_sample)
+                results.append(result)
+            except Exception as e:
+                print(e)
         
-        # Step 5: Process through HyDE LLM system
-        result = self.llm_system.process_sample(augmented_sample)
+        return results
         
-        # Step 6: Add HyDE-specific information
-        result.update({
-            'retrieved_docs': hyde_retrieved_docs,
-            'num_retrieved_docs': len(hyde_retrieved_docs),
-            'hyde_enhanced': bool(hyde_retrieved_docs),
-            'system_type': 'hyde_rag',
-            'hypothetical_document': hypothetical_doc,
-        })
-        
-        return result

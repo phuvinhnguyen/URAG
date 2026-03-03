@@ -68,24 +68,25 @@ class ConformalMetrics:
     def compute_prediction_set_aps(probabilities: Dict[str, float], threshold: float) -> List[str]:
         """
         Compute prediction set using APS threshold.
-        
         Args:
-            probabilities: Dict mapping options to their probabilities
+            probabilities: Dict mapping options to their probabilities  
             threshold: APS threshold (q_hat)
-            
         Returns:
             List of options in the prediction set
         """
         # Sort probabilities in descending order
         sorted_probs = sorted(probabilities.items(), key=lambda x: x[1], reverse=True)
-        
         prediction_set = []
         cumulative_prob = 0.0
         
         for option, prob in sorted_probs:
             cumulative_prob += prob
-            prediction_set.append(option)
-            if cumulative_prob >= threshold:
+            if cumulative_prob > threshold:
                 break
-        
+            prediction_set.append(option)
+                    
+        # Ensure at least one prediction
+        if len(prediction_set) == 0:
+            prediction_set.append(sorted_probs[0][0])  # Most likely option
+            
         return prediction_set

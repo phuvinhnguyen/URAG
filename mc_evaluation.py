@@ -21,11 +21,10 @@ import json
 import orjson
 import os
 import numpy as np
-from datetime import datetime
+from tqdm import tqdm
 from typing import List, Dict, Any, Tuple
 
 from loguru import logger
-from systems.simplellm import SimpleLLMSystem
 from systems.abstract import AbstractRAGSystem
 from metrics import ConformalMetrics
 from sklearn.metrics import roc_auc_score
@@ -61,8 +60,12 @@ class SystemEvaluator:
         """
         logger.info(f"Evaluating {len(samples)} samples")
         
+        raw_results = []
         # Process samples through the RAG system
-        raw_results = self.rag_system.batch_process_samples(samples)
+        for index in tqdm(range(0, len(samples), self.rag_system.get_batch_size()), desc="Processing samples"):
+            batch = samples[index:index+self.rag_system.get_batch_size()]
+            raw_result = self.rag_system.batch_process_samples(batch)
+            raw_results.extend(raw_result)
         
         # Ensure all results have the required format for conformal prediction
         processed_results = []
@@ -74,8 +77,7 @@ class SystemEvaluator:
             processed_result = {
                 'generated_response': result.get('generated_response', ''),
                 'predicted_answer': result.get('predicted_answer', 'Unknown'),
-                'conformal_probabilities': result.get('option_probabilities', {}),
-                'available_options': sample.get('options', []),
+                'conformal_probabilities': result.get('conformal_probabilities', {}),
                 'id': sample.get('id', 'unknown'),
                 'question': sample.get('question', ''),
                 'correct_answer': sample.get('correct_answer', ''),
@@ -327,260 +329,3 @@ class ConformalEvaluationPipeline:
                 'metrics': metrics_output
             }
         }
-
-
-# Example usage and testing
-def get_example_data() -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Generate example calibration and test data."""
-    calibration_data = [
-        {
-            "id": "cal_1",
-            "question": "What is the capital of France?\nA. Paris\nB. London\nC. Berlin\nD. Rome",
-            "answer": "A",
-            "correct_answer": "A",
-            "options": ["A", "B", "C", "D"],
-            "technique": "direct"
-        },
-        {
-            "id": "cal_2",
-            "question": "Which programming language is known for data science?\nA. COBOL\nB. Python\nC. Assembly\nD. FORTRAN",
-            "answer": "B",
-            "correct_answer": "B",
-            "options": ["A", "B", "C", "D"],
-            "technique": "direct"
-        }
-    ]
-    
-    test_data = [
-        {
-            "id": "test_1",
-            "question": "What is 2 + 2?\n1) 3\n2) 4\n3) 5\n4) 6",
-            "answer": "2",
-            "correct_answer": "2",
-            "options": ["1", "2", "3", "4"],
-            "technique": "direct"
-        }
-    ]
-    
-    return calibration_data, test_data
-
-
-# Example RAG System Implementations
-
-class SimpleRAGSystem(AbstractRAGSystem):
-    """
-    Example RAG system that performs simple retrieval and augmentation.
-    
-    This demonstrates how to implement a traditional RAG system.
-    """
-    
-    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto"):
-        """Initialize the RAG system with an LLM and simple retrieval."""
-        # Initialize the LLM component
-        self.llm_system = SimpleLLMSystem(model_name, device)
-        
-        # Simple knowledge base (in practice, this would be a vector database)
-        self.knowledge_base = {
-            "france": "France is a country in Europe. Its capital is Paris.",
-            "python": "Python is a popular programming language widely used in data science.",
-            "jupiter": "Jupiter is the largest planet in our solar system.",
-            "shakespeare": "William Shakespeare was an English playwright who wrote Romeo and Juliet.",
-            "math": "Mathematics involves calculations and problem-solving."
-        }
-    
-    def get_batch_size(self) -> int:
-        """Return batch size."""
-        return 1
-    
-    def _retrieve_context(self, question: str) -> str:
-        """Simple keyword-based retrieval."""
-        question_lower = question.lower()
-        retrieved_docs = []
-        
-        for keyword, doc in self.knowledge_base.items():
-            if keyword in question_lower:
-                retrieved_docs.append(doc)
-        
-        return " ".join(retrieved_docs) if retrieved_docs else ""
-    
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process sample with RAG enhancement."""
-        # Retrieve relevant context
-        question = sample.get('question', '')
-        retrieved_context = self._retrieve_context(question)
-        
-        # Augment sample with retrieved context
-        augmented_sample = sample.copy()
-        if retrieved_context:
-            existing_context = sample.get('search_results', sample.get('context', ''))
-            combined_context = f"{existing_context}\n{retrieved_context}".strip()
-            augmented_sample['search_results'] = combined_context
-            augmented_sample['technique'] = 'rag'
-        
-        # Process through LLM
-        result = self.llm_system.process_sample(augmented_sample)
-        
-        # Add RAG-specific information
-        result.update({
-            'retrieved_docs': retrieved_context,
-            'rag_enhanced': bool(retrieved_context)
-        })
-        
-        return result
-
-
-class ComplexReasoningSystem(AbstractRAGSystem):
-    """
-    Example of a complex multi-step reasoning system.
-    
-    This demonstrates how complex systems with multiple components
-    can be integrated into the evaluation framework.
-    """
-    
-    def __init__(self, model_name: str = "microsoft/DialoGPT-medium", device: str = "auto"):
-        """Initialize the complex reasoning system."""
-        self.llm_system = SimpleLLMSystem(model_name, device)
-        self.reasoning_steps = []
-    
-    def get_batch_size(self) -> int:
-        """Return batch size."""
-        return 1
-    
-    def _extract_key_concepts(self, question: str) -> List[str]:
-        """Extract key concepts from the question."""
-        # Simple concept extraction (in practice, use NER or other methods)
-        concepts = []
-        question_lower = question.lower()
-        
-        concept_keywords = {
-            'geography': ['capital', 'country', 'continent', 'city'],
-            'science': ['planet', 'chemical', 'formula', 'element'],
-            'literature': ['wrote', 'author', 'book', 'novel'],
-            'math': ['+', '-', '*', '/', 'calculate', 'solve'],
-            'programming': ['language', 'programming', 'code', 'python']
-        }
-        
-        for domain, keywords in concept_keywords.items():
-            if any(keyword in question_lower for keyword in keywords):
-                concepts.append(domain)
-        
-        return concepts
-    
-    def _multi_step_reasoning(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Perform multi-step reasoning."""
-        question = sample.get('question', '')
-        reasoning_steps = []
-        
-        # Step 1: Concept extraction
-        concepts = self._extract_key_concepts(question)
-        reasoning_steps.append(f"Identified concepts: {concepts}")
-        
-        # Step 2: Generate reasoning prompt
-        if concepts:
-            reasoning_prompt = f"This question involves {', '.join(concepts)}. Let me think through this step by step.\n\n{question}\n\nStep-by-step reasoning:"
-        else:
-            reasoning_prompt = f"Let me analyze this question step by step.\n\n{question}\n\nStep-by-step reasoning:"
-        
-        reasoning_steps.append("Generated reasoning prompt")
-        
-        # Step 3: Get reasoning response
-        reasoning_sample = sample.copy()
-        reasoning_sample['question'] = reasoning_prompt
-        reasoning_result = self.llm_system.process_sample(reasoning_sample)
-        
-        reasoning_steps.append("Generated reasoning response")
-        
-        # Step 4: Extract final answer with explicit reasoning
-        final_prompt = f"{reasoning_result['generated_response']}\n\nBased on the above reasoning, what is the final answer? Please provide it in the format <answer>X</answer>."
-        
-        final_sample = sample.copy()
-        final_sample['question'] = final_prompt
-        final_result = self.llm_system.process_sample(final_sample)
-        
-        reasoning_steps.append("Generated final answer")
-        
-        return {
-            'reasoning_steps': reasoning_steps,
-            'intermediate_response': reasoning_result['generated_response'],
-            'final_result': final_result,
-            'concepts_identified': concepts
-        }
-    
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process sample with complex reasoning."""
-        # Perform multi-step reasoning
-        reasoning_data = self._multi_step_reasoning(sample)
-        
-        # Extract final result
-        final_result = reasoning_data['final_result']
-        
-        # Return comprehensive result
-        return {
-            'id': sample.get('id', 'unknown'),
-            'generated_response': final_result['generated_response'],
-            'predicted_answer': final_result['predicted_answer'],
-            'option_probabilities': final_result['option_probabilities'],
-            'reasoning_steps': reasoning_data['reasoning_steps'],
-            'intermediate_reasoning': reasoning_data['intermediate_response'],
-            'concepts_identified': reasoning_data['concepts_identified'],
-            'system_type': 'complex_reasoning'
-        }
-
-
-if __name__ == "__main__":
-    # Example usage with different system types
-    
-    # For testing with example data
-    cal_data, test_data = get_example_data()
-    
-    # Save example data
-    with open("example_calibration.json", "wb") as f:
-        f.write(orjson.dumps(cal_data, option=orjson.OPT_INDENT_2))
-    
-    with open("example_test.json", "wb") as f:
-        f.write(orjson.dumps(test_data, option=orjson.OPT_INDENT_2))
-    
-    print("Testing different RAG system implementations...")
-    
-    # Test 1: Simple LLM System
-    print("\n1. Testing Simple LLM System")
-    simple_system = SimpleLLMSystem("microsoft/DialoGPT-small", "auto")
-    pipeline1 = ConformalEvaluationPipeline(simple_system)
-    
-    results1 = pipeline1.run_evaluation(
-        calibration_data_path="example_calibration.json",
-        test_data_path="example_test.json",
-        alpha=0.1,
-        output_dir="simple_llm_results"
-    )
-    print(f"Simple LLM - Accuracy: {results1['metrics']['accuracy']:.4f}")
-    
-    # Test 2: Simple RAG System
-    print("\n2. Testing Simple RAG System")
-    rag_system = SimpleRAGSystem("microsoft/DialoGPT-small", "auto")
-    pipeline2 = ConformalEvaluationPipeline(rag_system)
-    
-    results2 = pipeline2.run_evaluation(
-        calibration_data_path="example_calibration.json",
-        test_data_path="example_test.json",
-        alpha=0.1,
-        output_dir="simple_rag_results"
-    )
-    print(f"Simple RAG - Accuracy: {results2['metrics']['accuracy']:.4f}")
-    
-    # Test 3: Complex Reasoning System
-    print("\n3. Testing Complex Reasoning System")
-    complex_system = ComplexReasoningSystem("microsoft/DialoGPT-small", "auto")
-    pipeline3 = ConformalEvaluationPipeline(complex_system)
-    
-    results3 = pipeline3.run_evaluation(
-        calibration_data_path="example_calibration.json",
-        test_data_path="example_test.json",
-        alpha=0.1,
-        output_dir="complex_reasoning_results"
-    )
-    print(f"Complex Reasoning - Accuracy: {results3['metrics']['accuracy']:.4f}")
-    
-    print("\nAll evaluations completed successfully!")
-    print("Check the output directories for detailed results from different systems.")
-

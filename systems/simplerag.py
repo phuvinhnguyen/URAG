@@ -1,72 +1,47 @@
 from systems.abstract import AbstractRAGSystem
 from systems.simplellm import SimpleLLMSystem
 from typing import Dict, Any, List
-from loguru import logger
 from utils.clean import clean_web_content
-from utils.vectordb import QdrantVectorDB
-from utils.get_html import get_web_content
+from utils.ramdb import ChunkSearcher
+from utils.storage import get_storage
 
+class SimpleRAGSystem(AbstractRAGSystem):    
+    def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "cuda", retrieved_docs: int = 10, **kwargs):
+        self.retrieved_docs = retrieved_docs
+        self.llm_system = SimpleLLMSystem(model_name, device, technique='rag', **kwargs)
+        self.embedding_model = "all-MiniLM-L6-v2"
+    
+    def get_batch_size(self) -> int: return 8
 
-class SimpleRAGSystem(AbstractRAGSystem):
-    """
-    Simple RAG system that performs keyword-based retrieval and augmentation.
-    
-    This demonstrates how to implement a traditional RAG system with retrieval.
-    """
-    
-    def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "auto", **kwargs):
-        """Initialize the RAG system with an LLM and simple retrieval."""
-        # Initialize the LLM component
-        self.llm_system = SimpleLLMSystem(model_name, device, technique='rag')
-    
-    def get_batch_size(self) -> int:
-        """Return batch size."""
-        return 1
-    
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process sample with RAG enhancement."""
-        # Retrieve relevant context
-        num_retrieved_docs = 10
-        question = sample.get('question', '')
-        documents = [doc['page_snippet'] + "\n\n" + clean_web_content(doc['page_result']) if doc['page_result'] else
-                     doc['page_snippet'] + "\n\n" + clean_web_content(get_web_content(doc['page_url']))
-                     for doc in sample.get('search_results', [])]
-        
-        database = QdrantVectorDB(
-            texts=documents,
-            embedding_model="sentence_transformers",
-            chunk_size=30,
-            overlap=10
-        )
-                
-        retrieved_docs = database.search(question, method="hybrid", k=num_retrieved_docs)
-
-        # clean and remove database from memory to save RAM as much as possible
-        try:
-            database.client.delete_collection(database.collections[0])
-        except Exception as e:
-            logger.error(f"Error deleting collection: {e}")
-        del database
-        
-        # Augment sample with retrieved context
-        augmented_sample = sample.copy()
-        if retrieved_docs:            
-            augmented_sample['context'] = "- " + "\n- ".join([i['chunk'] for i in retrieved_docs])
-            augmented_sample['technique'] = 'rag'
-            
-            logger.debug(f"Enhanced sample with {len(retrieved_docs)} retrieved documents")
+    def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        results = []
+        embedding_model = "all-MiniLM-L6-v2"
+        sample = samples[0]
+        if sample.get('search_results', []) != [] and \
+            sample['search_results'][0].get('persistent_storage', None):
+            if not hasattr(self, 'database') or self.database is None:
+                self.database = ChunkSearcher(embedding_model=embedding_model)
+                self.database.set_documents([get_storage(sample['search_results'][0]['persistent_storage'])])
+            database = self.database
         else:
-            logger.debug("No relevant documents found for retrieval")
+            documents = [[doc['page_snippet'] + "\n\n" + clean_web_content(doc.get('page_result', ''))
+                        for doc in _sample.get('search_results', [])] for _sample in samples]
+            database = ChunkSearcher(embedding_model=embedding_model)
+            database.set_documents(documents)
+
+        retrieved_docs = database.batch_search(
+            [sample.get('question', '') for sample in samples],
+            [i for i in range(len(samples))],
+            k=self.retrieved_docs)
+
+        for _id, (sample, retrieved_doc) in enumerate(zip(samples, retrieved_docs)):
+            query_time = sample.get('query_time', 'March 1, 2025')
+            augmented_sample = sample.copy()
+            if retrieved_doc: augmented_sample['context'] = ("\n- " + "\n- ".join(retrieved_doc))[:4000] + '\nQuery Time: ' + query_time
+            try:
+                result = self.llm_system.process_sample(augmented_sample)
+                results.append(result)
+            except Exception as e:
+                print(e)        
         
-        # Process through LLM
-        result = self.llm_system.process_sample(augmented_sample)
-        
-        # Add RAG-specific information
-        result.update({
-            'retrieved_docs': retrieved_docs,
-            'num_retrieved_docs': len(retrieved_docs),
-            'rag_enhanced': bool(retrieved_docs),
-            'system_type': 'simple_rag'
-        })
-        
-        return result
+        return results

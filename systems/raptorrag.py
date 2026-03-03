@@ -1,317 +1,229 @@
 from systems.abstract import AbstractRAGSystem
-from systems.raptorllm import RaptorLLMSystem
+from systems.simplellm import SYSTEM_PROMPT
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from typing import Dict, Any, List
-from loguru import logger
 from pathlib import Path
-import sys
 import os
 from utils.clean import clean_web_content
-from utils.get_html import get_web_content
-from utils.vectordb import QdrantVectorDB
+from utils.ramdb import ChunkSearcher
+from utils.storage import get_storage
 
-# Ensure project root is on sys.path so nested packages resolve
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-if PROJECT_ROOT not in sys.path:
-    sys.path.append(PROJECT_ROOT)
+from systems.raptorllm import LocalQAModel, LocalSummarizationModel, LocalEmbeddingModel
 
 try:
-    # Try nested package layout first: repo_root/raptor/raptor/*.py
-    from raptor.raptor.cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
-    from raptor.raptor.tree_retriever import TreeRetriever, TreeRetrieverConfig
-    from raptor.raptor.EmbeddingModels import SBertEmbeddingModel
-    from raptor.raptor.SummarizationModels import GPT3TurboSummarizationModel
-    from raptor.raptor.tree_structures import Tree, Node
+    from raptor.raptor import RetrievalAugmentation, RetrievalAugmentationConfig
     RAPTOR_AVAILABLE = True
-    logger.info("RAPTOR components loaded successfully (raptor.raptor.*)")
 except ImportError:
+    # cd to parrent dirrectory of this file and clone https://github.com/parthsarthi03/raptor.git
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    os.system(f"cd {current_dir}/../ && git clone https://github.com/parthsarthi03/raptor.git")
+
     try:
-        # Fallback to flat layout: raptor/*.py
-        from raptor.cluster_tree_builder import ClusterTreeBuilder, ClusterTreeConfig
-        from raptor.tree_retriever import TreeRetriever, TreeRetrieverConfig
-        from raptor.EmbeddingModels import SBertEmbeddingModel
-        from raptor.SummarizationModels import GPT3TurboSummarizationModel
-        from raptor.tree_structures import Tree, Node
+        from raptor.raptor import RetrievalAugmentation, RetrievalAugmentationConfig
         RAPTOR_AVAILABLE = True
-        logger.info("RAPTOR components loaded successfully (raptor.*)")
-    except ImportError as e:
-        logger.warning(f"RAPTOR components not available: {e}")
+    except ImportError:
         RAPTOR_AVAILABLE = False
 
 
 class RaptorRAGSystem(AbstractRAGSystem):
     """
-    RAPTOR RAG system that uses hierarchical clustering and tree structures.
-    
-    This system implements the RAPTOR (Recursive Abstractive Processing for Tree-Organized Retrieval)
-    approach following the exact format of SimpleLLMSystem while integrating direct RAPTOR components.
+    Simplified RAPTOR RAG system following SimpleRAGSystem patterns.
+    Inherits from AbstractRAGSystem and combines LLM + RAPTOR + RAG functionality.
     """
-
-    def __init__(self,
-                 model_name: str = "Qwen/Qwen3-0.6B",
-                 device: str = "auto",
-                 num_samples: int = 20,
-                 tree_save_path: str = "raptor_tree",
-                 num_layers: int = 5,
-                 max_tokens: int = 100,
-                 threshold: float = 0.5,
-                 top_k: int = 5,
-                 reduction_dimension: int = 10):
-        """Initialize the RAPTOR RAG system following SimpleLLMSystem format."""
+    
+    def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B-Instruct", device: str = "cuda", 
+                 technique: str = "rag", max_new_tokens: int = 100, temperature: float = 0.1, 
+                 method: str = 'normal', **kwargs):
         
-        # Initialize the RAPTOR LLM component
-        self.llm_system = RaptorLLMSystem(
-            model_name=model_name,
-            device=device,
-            num_samples=num_samples,
-            tree_save_path=str(Path(tree_save_path)),
-            num_layers=num_layers,
-            max_tokens=max_tokens,
-            threshold=threshold,
-            top_k=top_k,
+        # Initialize LLM (following RaptorLLMV2System pattern)
+        self.device = device
+        self.technique = technique
+        self.temperature = temperature
+        self.max_new_tokens = max_new_tokens
+        self.method = method
+        
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, padding_side="left")
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            trust_remote_code=True,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            device_map='auto' if self.device == 'cuda' else None
         )
+        self.model.eval()
         
-        # RAPTOR-specific parameters
-        self.tree_save_path = Path(tree_save_path)
-        self.tree_save_path.mkdir(exist_ok=True)
-        self.num_layers = num_layers
-        self.max_tokens = max_tokens
-        self.threshold = threshold
-        self.top_k = top_k
-        self.reduction_dimension = reduction_dimension
-        
-        # RAPTOR components
-        self.tree = None
-        self.tree_retriever = None
-        self.tree_builder = None
+        if self.tokenizer.pad_token is None: 
+            self.tokenizer.pad_token = self.tokenizer.eos_token
         
         if RAPTOR_AVAILABLE:
-            self._initialize_raptor_components()
+            # Create RAPTOR models using the shared LLM
+            self.qa_model = LocalQAModel(self.model, self.tokenizer)
+            self.summarization_model = LocalSummarizationModel(self.model, self.tokenizer)
+            self.embedding_model = LocalEmbeddingModel()
+            
+            # Initialize RAPTOR configuration
+            self.config = RetrievalAugmentationConfig(
+                qa_model=self.qa_model,
+                summarization_model=self.summarization_model,
+                embedding_model=self.embedding_model
+            )
+            
+            # Create RAPTOR system (no tree persistence)
+            self.raptor = RetrievalAugmentation(config=self.config)
+            self.tree_built = False
         else:
-            logger.warning("RAPTOR not available, will use vector DB fallback")
-        
-        logger.info("Initialized RaptorRAG without persistent knowledge base; expecting per-sample documents")
-
-    def _initialize_raptor_components(self):
-        """Initialize RAPTOR tree builder and retriever configurations."""
-        try:
-            # Configure the tree builder
-            self.tree_config = ClusterTreeConfig(
-                max_tokens=self.max_tokens,
-                num_layers=self.num_layers,
-                threshold=self.threshold,
-                top_k=self.top_k,
-                selection_mode="top_k",
-                summarization_length=100,
-                summarization_model=GPT3TurboSummarizationModel(),
-                embedding_models={"SBert": SBertEmbeddingModel()},
-                cluster_embedding_model="SBert",
-                reduction_dimension=self.reduction_dimension
-            )
-            
-            # Initialize the tree builder
-            self.tree_builder = ClusterTreeBuilder(self.tree_config)
-            
-            logger.info("RAPTOR components initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize RAPTOR components: {e}")
-            self.tree_builder = None
+            self.raptor = None
     
-    def _build_raptor_tree(self):
-        """Deprecated: no longer builds from a static knowledge base."""
-        logger.debug("_build_raptor_tree called but static KB has been removed; skipping.")
-
-    def _retrieve_context_raptor_from_documents(self, question: str, documents: List[str]) -> List[str]:
-        """Build a temporary RAPTOR tree from provided documents and retrieve context."""
-        if not RAPTOR_AVAILABLE or not self.tree_builder:
-            return []
-        try:
-            combined_text = "\n\n".join(documents)
-            temp_tree = self.tree_builder.build_from_text(combined_text)
-
-            retriever_layers = min(self.num_layers, temp_tree.num_layers + 1)
-            retriever_config = TreeRetrieverConfig(
-                threshold=self.threshold,
-                top_k=self.top_k,
-                selection_mode="top_k",
-                context_embedding_model="SBert",
-                embedding_model=SBertEmbeddingModel(),
-                num_layers=retriever_layers
-            )
-            temp_retriever = TreeRetriever(retriever_config, temp_tree)
-
-            context = temp_retriever.retrieve(
-                query=question,
-                top_k=self.top_k,
-                max_tokens=1000,
-                collapse_tree=True
-            )
-
-            if not context:
-                return []
-
-            context_chunks = []
-            current_chunk = ""
-            sentences = context.split('. ')
-            for sentence in sentences:
-                if len(current_chunk) + len(sentence) < 200:
-                    current_chunk += sentence + '. '
-                else:
-                    if current_chunk:
-                        context_chunks.append(current_chunk.strip())
-                    current_chunk = sentence + '. '
-            if current_chunk:
-                context_chunks.append(current_chunk.strip())
-            return context_chunks[:3]
-        except Exception as e:
-            logger.error(f"RAPTOR per-doc retrieval failed: {str(e)}")
-            return []
+    def get_batch_size(self) -> int: return 40
     
-    def _save_tree(self):
-        """Save the current RAPTOR tree."""
-        if self.tree:
-            try:
-                tree_file = self.tree_save_path / "raptor_tree.pkl"
-                import pickle
-                with open(tree_file, 'wb') as f:
-                    pickle.dump(self.tree, f)
-                logger.info(f"RAPTOR tree saved to {tree_file}")
-            except Exception as e:
-                logger.error(f"Failed to save tree: {e}")
-    
-    def _load_tree(self):
-        """Load existing RAPTOR tree."""
-        tree_file = self.tree_save_path / "raptor_tree.pkl"
-        if tree_file.exists():
-            try:
-                import pickle
-                with open(tree_file, 'rb') as f:
-                    self.tree = pickle.load(f)
-                    
-                # Reinitialize retriever with loaded tree
-                retriever_layers = min(self.num_layers, self.tree.num_layers + 1)
-                retriever_config = TreeRetrieverConfig(
-                    threshold=self.threshold,
-                    top_k=self.top_k,
-                    selection_mode="top_k",
-                    context_embedding_model="SBert",
-                    embedding_model=SBertEmbeddingModel(),
-                    num_layers=retriever_layers
-                )
-                self.tree_retriever = TreeRetriever(retriever_config, self.tree)
-                
-                logger.info(f"Successfully loaded RAPTOR tree with {len(self.tree.all_nodes)} nodes")
-                return True
-            except Exception as e:
-                logger.error(f"Failed to load tree: {e}")
-                return False
-        return False
-
-    def get_batch_size(self) -> int:
-        """Return batch size (identical to SimpleLLMSystem)."""
-        return 1
-    
-    # Removed simple keyword-based retrieval paths; retrieval is per-sample via RAPTOR or vector DB
-
-    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
-        """Process sample with RAPTOR RAG using per-sample documents or vector DB fallback."""
+    def _generate_prompt(self, sample: Dict[str, Any]) -> str:
+        """Generate prompt based on sample technique using SYSTEM_PROMPT."""
         question = sample.get('question', '')
-        # Build documents from search results if provided
-        documents: List[str] = []
+        
+        if self.technique == 'cot': 
+            prompt = f"Let's think step by step.\n\n{question}\n\nPlease provide your reasoning and then give your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
+        elif self.technique == 'rag': 
+            prompt = f"Context information: {sample.get('context', '')}\n\nQuestion: {question}\n\nPlease provide your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
+        else: 
+            prompt = f"{question}\n\nPlease provide your final answer in the format Answer|X where X is your answer for the multiple choice question, which can be A, B, C, D, ..."
+        
         try:
-            raw_docs = sample.get('search_results', [])
-            if isinstance(raw_docs, list):
-                for d in raw_docs:
-                    if isinstance(d, dict):
-                        snippet = d.get('page_snippet', '') or ''
-                        page_result = d.get('page_result')
-                        page_url = d.get('page_url')
-                        content = ''
-                        if page_result:
-                            content = clean_web_content(page_result)
-                        elif page_url:
-                            try:
-                                content = clean_web_content(get_web_content(page_url))
-                            except Exception as e:
-                                logger.debug(f"Failed to fetch page_url content: {e}")
-                                content = ''
-                        doc_text = (snippet + "\n\n" + content).strip()
-                        if doc_text:
-                            documents.append(doc_text)
-        except Exception as e:
-            logger.warning(f"Failed to build documents from search_results: {e}")
+            prompt = self.tokenizer.apply_chat_template([
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": prompt}
+                ], tokenize=False, add_generation_prompt=True)
+        except: 
+            pass
 
-        retrieved_docs: List[str] = []
-        if documents and RAPTOR_AVAILABLE and self.tree_builder:
-            retrieved_docs = self._retrieve_context_raptor_from_documents(question, documents)
-
-        # Vector DB fallback or primary when RAPTOR unavailable
-        if not retrieved_docs and documents:
-            try:
-                database = QdrantVectorDB(
-                    texts=documents,
-                    embedding_model="sentence_transformers",
-                    chunk_size=300,
-                    overlap=150
-                )
-                vector_hits = database.search(question, method="hybrid", k=3)
-                retrieved_docs = [hit['chunk'] for hit in vector_hits]
-            except Exception as e:
-                logger.warning(f"Vector DB retrieval failed: {e}")
-                retrieved_docs = []
-        
-        # Augment sample with retrieved context (identical to SimpleRAGSystem)
-        augmented_sample = sample.copy()
-        if retrieved_docs:
-            # Combine retrieved documents
-            retrieved_context = "\n".join(retrieved_docs)
-            
-            # Add to existing context if any
-            existing_context = sample.get('search_results', sample.get('context', ''))
-            if existing_context:
-                combined_context = f"{existing_context}\n\nAdditional context:\n{retrieved_context}"
-            else:
-                combined_context = f"Context:\n{retrieved_context}"
-            
-            augmented_sample['search_results'] = combined_context
-            augmented_sample['technique'] = 'rag'
-            
-            logger.debug(f"Enhanced sample with {len(retrieved_docs)} retrieved documents")
-        else:
-            logger.debug("No relevant documents found for retrieval")
-        
-        # Process through LLM
-        result = self.llm_system.process_sample(augmented_sample)
-        
-        # Add RAPTOR-specific information
-        result.update({
-            'retrieved_docs': retrieved_docs,
-            'num_retrieved_docs': len(retrieved_docs),
-            'rag_enhanced': bool(retrieved_docs),
-            'system_type': 'raptor_rag',
-            'raptor_available': RAPTOR_AVAILABLE,
-            'tree_layers': 0,
-            'tree_nodes': 0
-        })
-        
-        return result
+        return prompt
     
-    def get_tree_info(self) -> Dict[str, Any]:
-        """Get information about the current RAPTOR tree."""
-        if not self.tree:
-            return {
-                'tree_available': False,
-                'raptor_available': RAPTOR_AVAILABLE,
-                'error': 'Tree not built or RAPTOR not available'
-            }
+    def _build_tree_if_needed(self, sample: Dict[str, Any]):
+        """Build RAPTOR tree from context if available and not already built."""
+        if not RAPTOR_AVAILABLE or self.tree_built:
+            return
+        
+        context = sample.get('search_results', sample.get('context', ''))
+        if context and isinstance(context, str) and len(context.strip()) > 50:
+            try:
+                self.raptor.add_documents(context)
+                self.tree_built = True
+            except Exception:
+                pass  # Fallback to normal LLM processing
+    
+    def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Efficient batch processing with single database initialization."""
+        results = []
+        embedding_model = "all-MiniLM-L6-v2"
+        
+        # Check for persistent storage (like SimpleRAGSystem)
+        sample = samples[0]
+        if sample.get('search_results', []) != [] and \
+            isinstance(sample['search_results'], list) and \
+            len(sample['search_results']) > 0 and \
+            isinstance(sample['search_results'][0], dict) and \
+            sample['search_results'][0].get('persistent_storage', None):
+            
+            # Use persistent storage - reuse database if already created
+            if not hasattr(self, 'database'):
+                self.database = ChunkSearcher(embedding_model=embedding_model)
+                self.database.set_documents([get_storage(sample['search_results'][0]['persistent_storage'])])
+            database = self.database
+        else:
+            # Create documents from search results (like SimpleRAGSystem)
+            documents = [[doc.get('page_snippet', '') + "\n\n" + clean_web_content(doc.get('page_result', ''))
+                        for doc in _sample.get('search_results', [])] for _sample in samples]
+            database = ChunkSearcher(embedding_model=embedding_model)
+            database.set_documents(documents)
+        
+        # Batch search for all questions at once
+        retrieved_docs = database.batch_search(
+            [sample.get('question', '') for sample in samples],
+            [i for i in range(len(samples))],
+            k=10)
+        
+        # Process each sample with retrieved context
+        for sample, retrieved_doc in zip(samples, retrieved_docs):
+            query_time = sample.get('query_time', 'March 1, 2025')
+            augmented_sample = sample.copy()
+            
+            # Add retrieved context (like SimpleRAGSystem)
+            if retrieved_doc:
+                augmented_sample['context'] = ("\n- " + "\n- ".join(retrieved_doc))[:4000] + '\nQuery Time: ' + query_time
+            
+            try:
+                # Process with RAPTOR + RAG capabilities
+                result = self._process_single_sample(augmented_sample)
+                results.append(result)
+            except Exception as e:
+                print(f"Error processing sample: {e}")
+                # Add error result
+                error_result = {
+                    'id': sample.get('id', 'unknown'),
+                    'generated_response': f"Error: {str(e)}",
+                    'predicted_answer': '',
+                    'conformal_probabilities': {},
+                    'technique': 'rag',
+                    'raptor_used': False,
+                    'error': str(e)
+                }
+                results.append(error_result)
+        
+        return results
+    
+    def _process_single_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a single sample with RAPTOR + RAG capabilities."""
+        # Try to build tree from context
+        self._build_tree_if_needed(sample)
+        
+        raptor_used = False
+        enhanced_sample = sample.copy()
+        
+        # Try RAPTOR question answering first
+        if RAPTOR_AVAILABLE and self.raptor and hasattr(self.raptor, 'tree') and self.raptor.tree:
+            try:
+                question = sample.get('question', '')
+                raptor_answer = self.raptor.answer_question(question=question)
+                
+                if raptor_answer and len(raptor_answer.strip()) > 0:
+                    # Combine RAPTOR answer with existing context
+                    existing_context = enhanced_sample.get('context', '')
+                    if existing_context:
+                        enhanced_sample['context'] = f"{existing_context}\n\nRAPTOR Analysis: {raptor_answer}"
+                    else:
+                        enhanced_sample['context'] = f"RAPTOR Analysis: {raptor_answer}"
+                    raptor_used = True
+            except Exception:
+                pass  # Continue with regular processing
+        
+        # Generate response using AbstractRAGSystem methods with SYSTEM_PROMPT
+        prompt = self._generate_prompt(enhanced_sample)
+        options = enhanced_sample.get('options', [])
+        response, conformal_probabilities = self._generate_response_with_probabilities(prompt, options)
+        
+        # Get predicted answer safely
+        predicted_answer = ""
+        if conformal_probabilities:
+            predicted_answer = max(conformal_probabilities.items(), key=lambda x: x[1])[0]
         
         return {
-            'tree_available': True,
-            'raptor_available': RAPTOR_AVAILABLE,
-            'num_layers': self.tree.num_layers,
-            'total_nodes': len(self.tree.all_nodes),
-            'leaf_nodes': len(self.tree.leaf_nodes),
-            'root_nodes': len(self.tree.root_nodes),
-            'layer_distribution': {
-                layer: len(nodes) for layer, nodes in self.tree.layer_to_nodes.items()
-            }
+            'id': enhanced_sample.get('id', 'unknown'),
+            'generated_response': response,
+            'predicted_answer': predicted_answer,
+            'conformal_probabilities': conformal_probabilities,
+            'technique': self.technique,
+            'raptor_used': raptor_used,
+            'rag_enhanced': bool(sample.get('context', ''))
+        }
+    
+    def process_sample(self, sample: Dict[str, Any]) -> Dict[str, Any]:
+        """Single sample processing - delegates to batch for consistency."""
+        results = self.batch_process_samples([sample])
+        return results[0] if results else {
+            'id': sample.get('id', 'unknown'),
+            'generated_response': 'Error: No result from batch processing',
+            'predicted_answer': '',
+            'conformal_probabilities': {},
+            'technique': 'rag',
+            'raptor_used': False,
+            'error': 'Batch processing failed'
         }
