@@ -1,4 +1,5 @@
 # URAG: Uncertainty-aware RAG Evaluation
+[Paper](https://arxiv.org/abs/2603.19281)
 
 URAG is a framework for evaluating RAG (Retrieval-Augmented Generation) systems with conformal prediction on multiple-choice QA benchmarks.
 
@@ -114,3 +115,13 @@ where:
 - Set Size: ($lac_ss + $aps_ss)/2
 - LLM's answer (what the system returns in `process_sample` and `batch_process_samples` methods) for all samples are saved in $x (calibration set) and $y (test set)
 - Performance, set size, coverage rate, conformal probabilities are saved in $z
+
+## Citation
+```txt
+@inproceedings{Nguyen2026URAGAB,
+  title={URAG: A Benchmark for Uncertainty Quantification in Retrieval-Augmented Large Language Models},
+  author={Vinh Nguyen and Cuong Quoc Dang and Jiahao Zhang and Hoang-Loc Tran and Minh Hoang Tran and Trinh Nguyen Chau and Thai Le and Lu Cheng and Suhang Wang},
+  year={2026},
+  url={https://api.semanticscholar.org/CorpusID:286751199}
+}
+```
