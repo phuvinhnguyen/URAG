@@ -34,7 +34,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
     
     def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B-Instruct", device: str = "cuda", 
                  technique: str = "rag", max_new_tokens: int = 100, temperature: float = 0.1, 
-                 method: str = 'normal', **kwargs):
+                 method: str = 'normal', embedding_model: str = "all-MiniLM-L6-v2", **kwargs):
         
         # Initialize LLM (following RaptorLLMV2System pattern)
         self.device = device
@@ -42,7 +42,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
         self.method = method
-        
+        self.embedding_model = embedding_model
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, padding_side="left")
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
@@ -59,7 +59,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
             # Create RAPTOR models using the shared LLM
             self.qa_model = LocalQAModel(self.model, self.tokenizer)
             self.summarization_model = LocalSummarizationModel(self.model, self.tokenizer)
-            self.embedding_model = LocalEmbeddingModel()
+            self.embedding_model = LocalEmbeddingModel(model_name=embedding_model)
             
             # Initialize RAPTOR configuration
             self.config = RetrievalAugmentationConfig(
@@ -113,7 +113,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Efficient batch processing with single database initialization."""
         results = []
-        embedding_model = "all-MiniLM-L6-v2"
+        embedding_model = self.embedding_model
         
         # Check for persistent storage (like SimpleRAGSystem)
         sample = samples[0]

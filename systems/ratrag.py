@@ -47,7 +47,7 @@ class RATRAGSystem(AbstractRAGSystem):
     """
     
     def __init__(self, model_name: str = "meta-llama/Llama-3.1-8B-Instruct", device: str = "cuda", 
-                 max_iterations: int = 1, retrieval_k: int = 10, max_chunks_per_thought: int = 2, thought_limit: int = 3, **kwargs):
+                 max_iterations: int = 1, retrieval_k: int = 10, max_chunks_per_thought: int = 2, thought_limit: int = 3, embedding_model: str = "all-MiniLM-L6-v2", **kwargs):
         self.max_iterations = max_iterations  # iterations per thought
         self.retrieval_k = retrieval_k
         self.max_chunks_per_thought = retrieval_k
@@ -61,6 +61,7 @@ class RATRAGSystem(AbstractRAGSystem):
         )
         self.tokenizer = self.llm_system.tokenizer
         self.device = self.llm_system.device
+        self.embedding_model = embedding_model
     
     def get_batch_size(self) -> int: return 2
 
@@ -161,13 +162,13 @@ Based on the evidence and current reasoning, revise and provide step-by-step rea
         if samples[0].get('search_results', []) != [] and \
             samples[0]['search_results'][0].get('persistent_storage', None):
             if not hasattr(self, 'database'):
-                self.database = ChunkSearcher()
+                self.database = ChunkSearcher(embedding_model=self.embedding_model)
                 self.database.set_documents([get_storage(samples[0]['search_results'][0]['persistent_storage'])])
             database = self.database
         else:
             documents = [[doc['page_snippet'] + "\n\n" + clean_web_content(doc.get('page_result', ''))
                         for doc in _sample.get('search_results', [])] for _sample in samples]
-            database = ChunkSearcher()
+            database = ChunkSearcher(embedding_model=self.embedding_model)
             database.set_documents(documents)
 
         batch_questions = [sample.get('question', '') for sample in samples]

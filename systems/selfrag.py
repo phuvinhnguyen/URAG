@@ -25,7 +25,7 @@ class SelfRAGSystem(AbstractRAGSystem):
     
     def __init__(self, model_name: str = "selfrag/selfrag_llama2_7b", device: str = "cuda", 
                  threshold: float = 0.2, max_depth: int = 6, beam_width: int = 2,
-                 w_rel: float = 1.0, w_sup: float = 1.0, w_use: float = 0.5, **kwargs):
+                 w_rel: float = 1.0, w_sup: float = 1.0, w_use: float = 0.5, embedding_model: str = "all-MiniLM-L6-v2", **kwargs):
         
         # Initialize the underlying LLM system
         self.llm_system = SelfLLMSystem(
@@ -47,7 +47,7 @@ class SelfRAGSystem(AbstractRAGSystem):
         
         # For retrieval
         self.database = None
-        self.embedding_model = "all-MiniLM-L6-v2"
+        self.embedding_model = embedding_model
         
         print(f"[SELFRAG] System initialized with model: {model_name}")
     
