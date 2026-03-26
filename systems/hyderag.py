@@ -18,10 +18,18 @@ class HyDERAGSystem(AbstractRAGSystem):
     4. Generate final answer using retrieved context
     """
     
-    def __init__(self, model_name: str = "gpt2", device: str = "auto", num_samples: int = 20, **kwargs):
+    def __init__(
+        self,
+        model_name: str = "gpt2",
+        device: str = "auto",
+        num_samples: int = 20,
+        embedding_model: str = "all-MiniLM-L6-v2",
+        **kwargs,
+    ):
+        self.embedding_model = embedding_model
         self.llm_system = HyDELLMSystem(model_name, device, num_samples=num_samples, technique='rag', **kwargs)
     
-    def get_batch_size(self) -> int: return 10
+    def get_batch_size(self) -> int: return 2
     
     def generate_hypothetical_document(self, questions: List[str]) -> List[str]:
         system_message = "You are a helpful assistant that writes comprehensive and informative passages to answer questions."
@@ -47,18 +55,17 @@ class HyDERAGSystem(AbstractRAGSystem):
 
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         results = []
-        embedding_model = "all-MiniLM-L6-v2"
         sample = samples[0]
         if sample.get('search_results', []) != [] and \
             sample['search_results'][0].get('persistent_storage', None):
             if not hasattr(self, 'database'):
-                self.database = ChunkSearcher(embedding_model=embedding_model)
+                self.database = ChunkSearcher(embedding_model=self.embedding_model)
                 self.database.set_documents([get_storage(sample['search_results'][0]['persistent_storage'])])
             database = self.database
         else:
             documents = [[doc['page_snippet'] + "\n\n" + clean_web_content(doc.get('page_result', ''))
                         for doc in _sample.get('search_results', [])] for _sample in samples]
-            database = ChunkSearcher(embedding_model=embedding_model)
+            database = ChunkSearcher(embedding_model=self.embedding_model)
             database.set_documents(documents)
 
         hypothetical_docs = self.generate_hypothetical_document([sample.get('question', '') for sample in samples])

@@ -6,27 +6,33 @@ from utils.ramdb import ChunkSearcher
 from utils.storage import get_storage
 
 class SimpleRAGSystem(AbstractRAGSystem):    
-    def __init__(self, model_name: str = "microsoft/DialoGPT-small", device: str = "cuda", retrieved_docs: int = 10, **kwargs):
+    def __init__(
+        self,
+        model_name: str = "microsoft/DialoGPT-small",
+        device: str = "cuda",
+        retrieved_docs: int = 10,
+        embedding_model: str = "all-MiniLM-L6-v2",
+        **kwargs,
+    ):
         self.retrieved_docs = retrieved_docs
+        self.embedding_model = embedding_model
         self.llm_system = SimpleLLMSystem(model_name, device, technique='rag', **kwargs)
-        self.embedding_model = "all-MiniLM-L6-v2"
     
-    def get_batch_size(self) -> int: return 8
+    def get_batch_size(self) -> int: return 2
 
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         results = []
-        embedding_model = "all-MiniLM-L6-v2"
         sample = samples[0]
         if sample.get('search_results', []) != [] and \
             sample['search_results'][0].get('persistent_storage', None):
             if not hasattr(self, 'database') or self.database is None:
-                self.database = ChunkSearcher(embedding_model=embedding_model)
+                self.database = ChunkSearcher(embedding_model=self.embedding_model)
                 self.database.set_documents([get_storage(sample['search_results'][0]['persistent_storage'])])
             database = self.database
         else:
             documents = [[doc['page_snippet'] + "\n\n" + clean_web_content(doc.get('page_result', ''))
                         for doc in _sample.get('search_results', [])] for _sample in samples]
-            database = ChunkSearcher(embedding_model=embedding_model)
+            database = ChunkSearcher(embedding_model=self.embedding_model)
             database.set_documents(documents)
 
         retrieved_docs = database.batch_search(

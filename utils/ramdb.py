@@ -9,6 +9,8 @@ from blingfire import text_to_sentences_and_offsets
 MAX_CONTEXT_SENTENCE_LENGTH = 1000
 SENTENCE_TRANSFORMER_BATCH_SIZE = 128
 
+_MODEL_CACHE: dict = {}
+
 def process_doc(args):
     """Fast parallel document chunking"""
     doc, interaction_id, max_len = args
@@ -25,7 +27,13 @@ def process_doc(args):
 
 class ChunkSearcher:
     def __init__(self, embedding_model: str = "all-MiniLM-L6-v2", max_workers: int = 8):
-        self.model = SentenceTransformer(embedding_model, device="cuda" if torch.cuda.is_available() else "cpu")
+        if embedding_model not in _MODEL_CACHE:
+            _MODEL_CACHE[embedding_model] = SentenceTransformer(
+                embedding_model,
+                device="cuda" if torch.cuda.is_available() else "cpu",
+                trust_remote_code=True,
+            )
+        self.model = _MODEL_CACHE[embedding_model]
         self.max_workers = max_workers
         
     def set_documents(self, docs: List[List[str]]):
