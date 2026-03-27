@@ -42,7 +42,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
         self.temperature = temperature
         self.max_new_tokens = max_new_tokens
         self.method = method
-        self.embedding_model = embedding_model
+        self.embedding_model_name = embedding_model
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True, padding_side="left")
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
@@ -74,7 +74,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
         else:
             self.raptor = None
     
-    def get_batch_size(self) -> int: return 40
+    def get_batch_size(self) -> int: return 2
     
     def _generate_prompt(self, sample: Dict[str, Any]) -> str:
         """Generate prompt based on sample technique using SYSTEM_PROMPT."""
@@ -113,7 +113,7 @@ class RaptorRAGSystem(AbstractRAGSystem):
     def batch_process_samples(self, samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Efficient batch processing with single database initialization."""
         results = []
-        embedding_model = self.embedding_model
+        embedding_model = self.embedding_model_name
         
         # Check for persistent storage (like SimpleRAGSystem)
         sample = samples[0]

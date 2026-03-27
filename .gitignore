@@ -50,6 +50,8 @@ benchmark_reports/
 mock_api/
 docs/
 data/
+reports/
+test/
 corag/
 configs_8b/
 run_all_*.sh
